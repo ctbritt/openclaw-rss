@@ -13,6 +13,8 @@ const Settings = Type.Object({
   markReadOnOpen: Type.Boolean(),
   loadImages: Type.Boolean(),
   backgroundCapture: Type.Boolean(),
+  aiGrading: Type.Boolean(),
+  gradingRubric: Type.String({ maxLength: 4000 }),
 });
 
 const Feed = Type.Object({
@@ -24,6 +26,10 @@ const Feed = Type.Object({
 const ArticleSummary = Type.Object({
   id: Id, feedId: NullableId, feedTitle: Type.String(), title: Type.String(), author: Type.String(),
   url: Type.Union([Type.String(), Type.Null()]), publishedAt: Type.Integer(), excerpt: Type.String(), image: Type.Union([Type.String(), Type.Null()]),
+  grade: Type.Union([Type.Null(), Type.Object({
+    level: Type.Union([Type.Literal("important"), Type.Literal("interesting"), Type.Literal("normal"), Type.Literal("spam")]),
+    reason: Type.String(),
+  })]),
   read: Type.Boolean(), saved: Type.Boolean(), hasFull: Type.Boolean(),
 });
 
@@ -72,6 +78,7 @@ export const contract = defineFeatureContract({
         rules: Type.Array(Rule),
         settings: Settings,
         lastRefreshAt: Type.Union([Type.Integer(), Type.Null()]),
+        grading: Type.Object({ remaining: Type.Integer(), running: Type.Boolean(), lastError: Type.Union([Type.String(), Type.Null()]) }),
       }),
       tool: { name: "rss_feeds", label: "List RSS feeds" },
     },
@@ -156,6 +163,12 @@ export const contract = defineFeatureContract({
       description: "Change reader settings.",
       input: Type.Partial(Settings, closed),
       output: Settings,
+    },
+    grade: {
+      kind: "action",
+      description: "Grade ungraded articles for importance now. With regrade, forget existing grades first.",
+      input: Type.Object({ regrade: Type.Optional(Type.Boolean()) }, closed),
+      output: orFailure(Type.Object({ graded: Type.Integer(), remaining: Type.Integer() })),
     },
     add_rule: {
       kind: "action",

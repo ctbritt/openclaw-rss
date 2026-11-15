@@ -321,3 +321,35 @@ test("search also matches the byline and the publication name", () => {
   assert.equal(store.listArticles({ search: "nowhere" }).total, 0);
   store.close();
 });
+
+test("grading: verdicts are stored once, junk answers are rejected, the article text is never obeyed as an id", async () => {
+  const { parseGrades, gradingInstructions } = await import("../dist/library.js");
+  assert.deepEqual(parseGrades('```json\n{"grades":[{"id":1,"level":"IMPORTANT","reason":" big  deal "},{"id":9,"level":"spam","reason":"x"},{"id":2,"level":"urgent","reason":"x"},{"id":1,"level":"spam","reason":"dup"}]}\n```', new Set([1, 2])),
+    [{ id: 1, level: "important", reason: "big deal" }]);
+  assert.deepEqual(parseGrades("sorry, I cannot", new Set([1])), []);
+  assert.match(gradingInstructions(""), /important: changes a decision/);
+  assert.match(gradingInstructions("important: anything about Iraq"), /anything about Iraq/);
+
+  const store = new Store(":memory:");
+  const feedId = store.addFeed({ url: "https://example.com/feed", title: "Feed", folder: "" });
+  store.addArticles(feedId, [1, 2, 3].map((n) => ({ guid: String(n), url: `https://example.com/${n}`, title: `Story ${n}`, author: "", publishedAt: Date.now() - n * 1000, html: "<p>t</p>", text: "t" })));
+  const calls = [];
+  const library = new Library(store, async () => { throw new Error("no network in this test"); }, () => {}, () => {}, async ({ input }) => {
+    const items = JSON.parse(input);
+    calls.push(items.length);
+    return JSON.stringify({ grades: items.map((item, index) => ({ id: item.id, level: index === 0 ? "important" : "normal", reason: "because" })) });
+  });
+  const first = await library.gradePending({ manual: true });
+  assert.deepEqual(first, { graded: 3, remaining: 0 });
+  assert.deepEqual(await library.gradePending({ manual: true }), { graded: 0, remaining: 0 });
+  assert.deepEqual(calls, [3]);
+  const levels = store.listArticles({}).items.map((item) => item.grade?.level);
+  assert.deepEqual(levels, ["important", "normal", "normal"]);
+  store.clearGrades();
+  assert.equal(store.ungradedCount(), 3);
+
+  const broken = new Library(store, async () => { throw new Error("no network"); }, () => {}, () => {}, async () => "not json");
+  await assert.rejects(() => broken.gradePending({ manual: true }), /not with grades/);
+  assert.equal(broken.gradingStatus().lastError?.includes("not with grades"), true);
+  store.close();
+});

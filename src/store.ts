@@ -19,7 +19,14 @@ export type Settings = {
   markReadOnOpen: boolean;
   loadImages: boolean;
   backgroundCapture: boolean;
+  aiGrading: boolean;
+  /** The reader's own words on what matters; empty means the built-in rubric. */
+  gradingRubric: string;
 };
+
+export const GRADE_LEVELS = ["important", "interesting", "normal", "spam"] as const;
+export type GradeLevel = (typeof GRADE_LEVELS)[number];
+export type Grade = { level: GradeLevel; reason: string };
 
 export const DEFAULT_SETTINGS: Settings = {
   autoRefresh: true,
@@ -27,6 +34,8 @@ export const DEFAULT_SETTINGS: Settings = {
   markReadOnOpen: true,
   loadImages: true,
   backgroundCapture: true,
+  aiGrading: true,
+  gradingRubric: "",
 };
 
 export type FeedRow = {
@@ -39,6 +48,8 @@ export type FeedFetchState = { id: number; url: string; etag: string | null; las
 export type ArticleSummary = {
   id: number; feedId: number | null; feedTitle: string; title: string; author: string; url: string | null;
   publishedAt: number; excerpt: string; image: string | null; read: boolean; saved: boolean; hasFull: boolean;
+  /** Null until graded. "normal" is stored too, so a story is never graded twice. */
+  grade: Grade | null;
 };
 
 export type ArticleDetail = ArticleSummary & { html: string; fullHtml: string | null; fullStatus: string };
@@ -72,6 +83,7 @@ CREATE TABLE IF NOT EXISTS articles (
   id INTEGER PRIMARY KEY, feed_id INTEGER, feed_title TEXT NOT NULL DEFAULT '', guid TEXT NOT NULL,
   url TEXT, title TEXT NOT NULL, author TEXT NOT NULL DEFAULT '', published_at INTEGER NOT NULL,
   fetched_at INTEGER NOT NULL, excerpt TEXT NOT NULL DEFAULT '', html TEXT NOT NULL DEFAULT '', image TEXT,
+  grade TEXT, grade_reason TEXT,
   search_lc TEXT NOT NULL DEFAULT '', full_html TEXT, full_status TEXT NOT NULL DEFAULT 'none',
   read INTEGER NOT NULL DEFAULT 0, saved INTEGER NOT NULL DEFAULT 0,
   UNIQUE (feed_id, guid)
@@ -88,7 +100,7 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 const HIDDEN = `EXISTS (SELECT 1 FROM rules r WHERE (r.feed_id IS NULL OR r.feed_id = a.feed_id) AND instr(a.search_lc, lower(r.phrase)) > 0)`;
 const SUMMARY_COLUMNS = `a.id, a.feed_id, COALESCE(NULLIF(f.custom_title, ''), NULLIF(f.title, ''), a.feed_title) AS feed_title,
-  a.title, a.author, a.url, a.published_at, a.excerpt, a.image, a.read, a.saved, a.full_status`;
+  a.title, a.author, a.url, a.published_at, a.excerpt, a.image, a.read, a.saved, a.full_status, a.grade, a.grade_reason`;
 
 /** First picture in already-cleaned article HTML, used as the list thumbnail when the feed names none. */
 export function firstImage(html: string): string | null {
@@ -110,6 +122,7 @@ function summary(row: Row): ArticleSummary {
     read: Number(row.read) === 1,
     saved: Number(row.saved) === 1,
     hasFull: row.full_status === "done",
+    grade: (GRADE_LEVELS as readonly string[]).includes(String(row.grade)) ? { level: String(row.grade) as GradeLevel, reason: String(row.grade_reason ?? "") } : null,
   };
 }
 
@@ -138,6 +151,34 @@ export class Store {
         }
       });
     }
+    if (!columns.includes("grade")) this.db.exec("ALTER TABLE articles ADD COLUMN grade TEXT; ALTER TABLE articles ADD COLUMN grade_reason TEXT;");
+  }
+
+  // ---- grading --------------------------------------------------------------------------
+
+  /** Newest stories that have no grade yet. */
+  ungraded(limit: number): Array<{ id: number; title: string; feedTitle: string; excerpt: string }> {
+    return (this.db.prepare(`SELECT a.id, a.title, a.excerpt, COALESCE(NULLIF(f.custom_title, ''), NULLIF(f.title, ''), a.feed_title) AS feed_title
+      FROM articles a LEFT JOIN feeds f ON f.id = a.feed_id WHERE a.grade IS NULL ORDER BY a.published_at DESC, a.id DESC LIMIT ?`).all(limit) as Row[])
+      .map((row) => ({ id: Number(row.id), title: String(row.title), feedTitle: String(row.feed_title ?? ""), excerpt: String(row.excerpt ?? "") }));
+  }
+
+  ungradedCount(): number {
+    return Number((this.db.prepare("SELECT COUNT(*) AS n FROM articles WHERE grade IS NULL").get() as Row).n);
+  }
+
+  setGrades(grades: Array<{ id: number } & Grade>): number {
+    return this.tx(() => {
+      const update = this.db.prepare("UPDATE articles SET grade = ?, grade_reason = ? WHERE id = ?");
+      let count = 0;
+      for (const grade of grades) count += Number(update.run(grade.level, clip(grade.reason, 240), grade.id).changes);
+      return count;
+    });
+  }
+
+  /** Forget every grade, so the next pass starts over (used after the rubric changes). */
+  clearGrades(): void {
+    this.db.exec("UPDATE articles SET grade = NULL, grade_reason = NULL");
   }
 
   close(): void { this.db.close(); }
@@ -157,6 +198,7 @@ export class Store {
       if (!(key in settings)) continue;
       try { (settings as Record<string, unknown>)[key] = JSON.parse(String(row.value)); } catch { /* keep default */ }
     }
+    settings.gradingRubric = clip(String(settings.gradingRubric ?? ""), 4000);
     settings.refreshMinutes = Math.min(1440, Math.max(1, Math.round(Number(settings.refreshMinutes) || DEFAULT_SETTINGS.refreshMinutes)));
     return settings;
   }

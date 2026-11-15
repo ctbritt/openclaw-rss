@@ -81,7 +81,7 @@
 .rss-root .rss-card.rss-active { background: var(--rss-card); border-radius: var(--rss-r-lg); border-bottom-color: transparent; outline: 2px solid var(--accent, #4a7dff); box-shadow: var(--shadow-sm, none); }
 .rss-card-meta { display: flex; align-items: center; gap: 6px; font-size: 0.76em; color: var(--rss-dim); min-width: 0; }
 .rss-card-feed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rss-card-date { margin-left: auto; flex: none; }
+.rss-card-date { flex: none; }
 .rss-card-saved { display: inline-flex; color: var(--accent, #4a7dff); }
 .rss-card-saved .rss-svg { width: 11px; height: 11px; }
 .rss-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent, #4a7dff); flex: none; }
@@ -93,6 +93,20 @@
 .rss-read-item .rss-card-title { font-weight: 500; color: var(--text); }
 .rss-read-item :is(.rss-card-title, .rss-card-excerpt, .rss-thumb) { opacity: 0.68; }
 .rss-root .rss-more { display: flex; margin: 14px auto; }
+
+/* Ranking: a pill and a wash of colour on stories the grader flagged. */
+.rss-grade-important { --rss-tag: var(--danger, #c0392b); }
+.rss-grade-interesting { --rss-tag: var(--warn, #b7791f); }
+.rss-grade-spam { --rss-tag: var(--muted, #777); }
+.rss-root .rss-card[class*="rss-grade-"] { background: color-mix(in srgb, var(--rss-tag) 9%, transparent); border-radius: var(--rss-r); border-bottom-color: transparent; margin-block: 2px; }
+.rss-root .rss-card[class*="rss-grade-"]:hover { background: color-mix(in srgb, var(--rss-tag) 14%, transparent); }
+.rss-root .rss-card[class*="rss-grade-"].rss-active { background: color-mix(in srgb, var(--rss-tag) 9%, var(--rss-card)); border-radius: var(--rss-r-lg); }
+.rss-card-date { margin-left: 0; }
+.rss-card-feed { margin-right: auto; }
+.rss-pill { flex: none; font-size: 0.82em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rss-tag); border: 1px solid color-mix(in srgb, var(--rss-tag) 55%, transparent); border-radius: 999px; padding: 0 7px; line-height: 1.5; }
+.rss-grade-note { margin-top: 16px; padding: 10px 14px; border-radius: var(--rss-r); font-size: 0.9em; background: color-mix(in srgb, var(--rss-tag) 9%, transparent); border: 1px solid color-mix(in srgb, var(--rss-tag) 35%, transparent); }
+.rss-grade-label { display: block; font-size: 0.72em; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rss-tag); margin-bottom: 2px; }
+.rss-form textarea { font: inherit; color: inherit; background: var(--rss-card); border: 1px solid var(--input, var(--rss-line)); border-radius: var(--rss-r); padding: 6px 10px; resize: vertical; min-height: 5em; }
 
 /* Reading pane */
 .rss-read:focus { outline: none; }

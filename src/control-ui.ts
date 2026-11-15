@@ -322,6 +322,22 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     const markRead = check(current.markReadOnOpen);
     const images = check(current.loadImages);
     const capture = check(current.backgroundCapture);
+    const grading = check(current.aiGrading);
+    const rubric = h("textarea", { rows: "5", placeholder: "Leave empty for the standard rubric, or describe in your own words what counts as important, interesting, normal and spam.", "aria-label": "What matters to you" });
+    rubric.value = current.gradingRubric;
+    const status = state.overview?.grading;
+    const gradeStatus = h("p", { class: status?.lastError ? "rss-error" : "rss-muted", "aria-live": "polite" },
+      status?.lastError ? `Last grading run failed: ${status.lastError}` : status?.running ? `Grading now, ${status.remaining.toLocaleString()} to go.` : status?.remaining ? `${status.remaining.toLocaleString()} articles not graded yet.` : "Every article is graded.");
+    const gradeNow = (regrade: boolean) => async (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      button.disabled = true; gradeStatus.className = "rss-muted"; gradeStatus.textContent = "Grading…";
+      try {
+        const result = unwrap(await api.invoke("grade", regrade ? { regrade: true } : {}));
+        gradeStatus.textContent = `Graded ${result.graded.toLocaleString()}; ${result.remaining.toLocaleString()} to go${result.remaining ? " (the rest continue in the background)" : ""}.`;
+      } catch (error) { gradeStatus.className = "rss-error"; gradeStatus.textContent = errorText(error); }
+      button.disabled = false;
+      void reload();
+    };
     const file = h("input", { type: "file", accept: ".opml,.xml,text/xml,text/x-opml", hidden: true });
     file.addEventListener("change", async () => {
       const chosen = file.files?.[0];
@@ -347,6 +363,12 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       h("label", { class: "rss-check" }, images, "Load article images"),
       h("p", { class: "rss-muted" }, "Images load straight from publishers and can reveal your IP address to them."),
       h("label", { class: "rss-check" }, capture, "Fetch full articles in the background after each refresh"),
+      h("h3", {}, "Ranking"),
+      h("label", { class: "rss-check" }, grading, "Grade new articles as important, interesting, normal or spam"),
+      h("label", {}, "What matters to you", rubric),
+      h("p", { class: "rss-muted" }, "Changing this regrades the whole library."),
+      h("div", { class: "rss-row" }, h("button", { type: "button", onclick: gradeNow(false) }, "Grade now"), h("button", { type: "button", onclick: gradeNow(true) }, "Regrade everything")),
+      gradeStatus,
       h("h3", {}, "Subscriptions"),
       h("div", { class: "rss-row" }, h("button", { type: "button", onclick: () => file.click() }, "Import OPML…"), h("button", { type: "button", onclick: exportOpml }, "Export OPML"), file));
     const box = dialog("RSS settings", body, [h("button", { type: "button", onclick: () => box.close() }, "Cancel"),
@@ -354,6 +376,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         await guard(() => api.invoke("set_settings", {
           autoRefresh: auto.checked, refreshMinutes: Math.min(1440, Math.max(1, Math.round(Number(minutes.value) || 30))),
           markReadOnOpen: markRead.checked, loadImages: images.checked, backgroundCapture: capture.checked,
+          aiGrading: grading.checked, gradingRubric: rubric.value.trim(),
         }));
         box.close(); await loadOverview(); renderRead();
       } }, "Save")]);
@@ -466,9 +489,11 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       const selected = item.id === state.selectedId;
       const thumb = pictures && item.image ? h("img", { class: "rss-thumb", src: item.image, alt: "", loading: "lazy", decoding: "async", referrerpolicy: "no-referrer" }) : null;
       thumb?.addEventListener("error", () => thumb.remove());
-      const element = h("button", { class: `rss-card${item.read ? " rss-read-item" : ""}${selected ? " rss-active" : ""}`, role: "option", "aria-selected": String(selected), onclick: () => void open(item.id) },
+      const flagged = item.grade && item.grade.level !== "normal" ? item.grade : null;
+      const element = h("button", { class: `rss-card${item.read ? " rss-read-item" : ""}${selected ? " rss-active" : ""}${flagged ? ` rss-grade-${flagged.level}` : ""}`, role: "option", "aria-selected": String(selected), onclick: () => void open(item.id) },
         h("span", { class: "rss-card-meta" }, item.read ? null : h("span", { class: "rss-dot", title: "Unread" }), h("span", { class: "rss-card-feed" }, item.feedTitle),
-          item.saved ? h("span", { class: "rss-card-saved", title: "Saved" }, icon("bookmark", true)) : null, h("span", { class: "rss-card-date" }, relativeTime(item.publishedAt))),
+          item.saved ? h("span", { class: "rss-card-saved", title: "Saved" }, icon("bookmark", true)) : null, flagged ? h("span", { class: "rss-pill", title: flagged.reason }, flagged.level) : null,
+          h("span", { class: "rss-card-date" }, relativeTime(item.publishedAt))),
         h("span", { class: "rss-card-main" },
           h("span", { class: "rss-card-text" }, h("span", { class: "rss-card-title" }, item.title), item.excerpt ? h("span", { class: "rss-card-excerpt" }, item.excerpt) : null),
           thumb));
@@ -513,6 +538,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         h("button", { class: "rss-tab", title: "Ask the agent to look for other reporting on these claims", onclick: () => void chat("sources") }, "Sources"),
         h("button", { class: "rss-primary", title: "Open a conversation about this article", onclick: () => void chat("discuss") }, "Discuss", icon("arrowOut"))),
       article.fullHtml ? null : h("p", { class: "rss-muted rss-from-feed" }, "Showing what the feed provided."),
+      article.grade && article.grade.level !== "normal" ? h("div", { class: `rss-grade-note rss-grade-${article.grade.level}` }, h("span", { class: "rss-grade-label" }, article.grade.level), article.grade.reason) : null,
       body));
   }
 
