@@ -25,8 +25,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoRefresh: true,
   refreshMinutes: 30,
   markReadOnOpen: true,
-  loadImages: false,
-  backgroundCapture: false,
+  loadImages: true,
+  backgroundCapture: true,
 };
 
 export type FeedRow = {
@@ -300,7 +300,12 @@ export class Store {
     if (query.view === "unread") clauses.push("a.read = 0");
     if (query.view === "saved") clauses.push("a.saved = 1");
     const search = query.search?.trim().toLowerCase();
-    if (search) { clauses.push("instr(a.search_lc, ?) > 0"); params.push(search); }
+    // Headline and text, plus the byline and the publication's name.
+    if (search) {
+      clauses.push(`(instr(a.search_lc, ?) > 0 OR instr(lower(a.author), ?) > 0
+        OR instr(lower(COALESCE((SELECT COALESCE(NULLIF(f2.custom_title, ''), f2.title) FROM feeds f2 WHERE f2.id = a.feed_id), a.feed_title)), ?) > 0)`);
+      params.push(search, search, search);
+    }
     const exclude = query.exclude?.trim().toLowerCase();
     if (exclude) { clauses.push("instr(a.search_lc, ?) = 0"); params.push(exclude); }
     return { sql: clauses.length ? clauses.join(" AND ") : "1 = 1", params };

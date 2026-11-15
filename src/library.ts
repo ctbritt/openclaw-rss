@@ -146,6 +146,11 @@ export class Library {
     void this.drainCaptureQueue();
   }
 
+  private stopping = false;
+
+  /** Ask background work to finish its current page and go no further; call before closing the store. */
+  stop(): void { this.stopping = true; }
+
   /** Background capture: two workers, off the refresh path, resumable after a restart. */
   async drainCaptureQueue(): Promise<void> {
     if (this.capturing) return;
@@ -153,13 +158,15 @@ export class Library {
     try {
       await Promise.all(Array.from({ length: CAPTURE_WORKERS }, async () => {
         for (;;) {
-          if (!this.store.getSettings().backgroundCapture) return;
-          const job = this.store.nextQueued();
+          if (this.stopping || !this.store.getSettings().backgroundCapture) return;
+          // Keep topping the queue up, so a newly imported library is worked through in one go.
+          let job = this.store.nextQueued();
+          if (!job) { this.store.queueCapture(CAPTURE_QUEUE); job = this.store.nextQueued(); }
           if (!job) return;
           try { await this.capture(job.id, false); } catch { /* recorded as failed */ }
         }
       }));
-      this.changed("captured");
+      if (!this.stopping) this.changed("captured");
     } finally {
       this.capturing = false;
     }
@@ -172,6 +179,7 @@ export class Library {
     if (!article.url) throw new Error("This article has no link to its original page.");
     try {
       const response = await this.fetch({ url: article.url, headers: { accept: "text/html,application/xhtml+xml" }, maxBytes: PAGE_BYTES, timeoutMs: PAGE_TIMEOUT });
+      if (this.stopping) return;
       if (response.status < 200 || response.status >= 300) throw new Error(`The site answered ${response.status}.`);
       const page = decodeBody(response.body, response.headers.get("content-type"));
       const { document } = parseHTML(page);

@@ -50,6 +50,7 @@ export default defineFeaturePlugin({
       stop() {
         if (timer) clearInterval(timer);
         timer = null;
+        library?.stop();
         library?.store.close();
         library = null;
       },

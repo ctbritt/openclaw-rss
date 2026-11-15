@@ -311,3 +311,13 @@ test("thumbnails: the feed's declared picture wins, else the first picture in th
   assert.equal(firstImage('<p>x</p><img loading="lazy" src="https://example.com/p.jpg?a=1&amp;b=2" alt="">'), "https://example.com/p.jpg?a=1&b=2");
   assert.equal(firstImage("<p>no pictures</p>"), null);
 });
+
+test("search also matches the byline and the publication name", () => {
+  const store = new Store(":memory:");
+  const feedId = store.addFeed({ url: "https://example.com/feed", title: "Harbor Gazette", folder: "" });
+  store.addArticles(feedId, [{ guid: "1", url: "https://example.com/1", title: "Tides", author: "Ana Funte", publishedAt: Date.now(), html: "<p>Water.</p>", text: "Water." }]);
+  assert.equal(store.listArticles({ search: "funte" }).total, 1);
+  assert.equal(store.listArticles({ search: "harbor gaz" }).total, 1);
+  assert.equal(store.listArticles({ search: "nowhere" }).total, 0);
+  store.close();
+});
