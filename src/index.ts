@@ -71,15 +71,15 @@ export default defineFeaturePlugin({
       },
       articles: (query) => lib().store.listArticles(query),
       article: ({ id }) => article(id),
-      exportOpml: () => ({ xml: lib().exportOpml() }),
-      addFeed: ({ url, folder }) => lib().addFeed(url, folder),
-      updateFeed: ({ id, title, folder, move }) => {
+      export_opml: () => ({ xml: lib().exportOpml() }),
+      add_feed: ({ url, folder }) => lib().addFeed(url, folder),
+      update_feed: ({ id, title, folder, move }) => {
         lib().store.updateFeed(id, { title, folder });
         if (move) lib().store.moveFeed(id, move);
         changed("feed-updated");
         return { ok: true };
       },
-      removeFeed: ({ id }) => { lib().store.removeFeed(id); changed("feed-removed"); return { ok: true }; },
+      remove_feed: ({ id }) => { lib().store.removeFeed(id); changed("feed-removed"); return { ok: true }; },
       refresh: ({ feedId }) => lib().refresh(feedId),
       mark: ({ read, ids, feedId, all }) => {
         const store = lib().store;
@@ -92,12 +92,12 @@ export default defineFeaturePlugin({
       },
       save: ({ id, saved }) => { lib().store.setSaved(id, saved); changed("saved-state"); return { ok: true }; },
       capture: async ({ id }) => { await lib().capture(id); return article(id); },
-      importOpml: ({ xml }) => lib().importOpml(xml),
-      setSettings: (patch) => { const next = lib().store.setSettings(patch); changed("settings"); return next; },
-      addRule: ({ phrase, feedId }) => { const id = lib().store.addRule(phrase, feedId ?? null); changed("rules"); return { id }; },
-      removeRule: ({ id }) => { lib().store.removeRule(id); changed("rules"); return { ok: true }; },
-      addSearch: (search) => { const id = lib().store.addSearch(search); changed("searches"); return { id }; },
-      removeSearch: ({ id }) => { lib().store.removeSearch(id); changed("searches"); return { ok: true }; },
+      import_opml: ({ xml }) => lib().importOpml(xml),
+      set_settings: (patch) => { const next = lib().store.setSettings(patch); changed("settings"); return next; },
+      add_rule: ({ phrase, feedId }) => { const id = lib().store.addRule(phrase, feedId ?? null); changed("rules"); return { id }; },
+      remove_rule: ({ id }) => { lib().store.removeRule(id); changed("rules"); return { ok: true }; },
+      add_search: (search) => { const id = lib().store.addSearch(search); changed("searches"); return { id }; },
+      remove_search: ({ id }) => { lib().store.removeSearch(id); changed("searches"); return { ok: true }; },
     };
   },
 });

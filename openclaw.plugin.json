@@ -5,17 +5,23 @@
   "version": "0.1.0",
   "configSchema": {
     "type": "object",
-    "properties": {},
-    "additionalProperties": false
+    "additionalProperties": false,
+    "properties": {}
   },
   "activation": {
     "onStartup": true
   },
   "contracts": {
     "tools": [
-      "rss_feeds",
+      "rss_article",
       "rss_articles",
-      "rss_article"
+      "rss_feeds"
+    ]
+  },
+  "controlUi": {
+    "entry": "dist/control-ui/432992b1aecf7e968fe1f66a32c169e3e03542a4c2e952e9fbd0345c7b6cbdf8/index.js",
+    "styles": [
+      "dist/control-ui/432992b1aecf7e968fe1f66a32c169e3e03542a4c2e952e9fbd0345c7b6cbdf8/index.css"
     ]
   }
 }

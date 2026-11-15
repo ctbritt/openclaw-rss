@@ -1,4 +1,106 @@
-.feature-draft-page, .feature-draft-composer { display: grid; gap: 16px; padding: 24px; color: var(--text); }
-.feature-draft-page textarea, .feature-draft-composer textarea { min-height: 140px; padding: 12px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; font: inherit; }
-.feature-draft-page button, .feature-draft-composer button { justify-self: start; padding: 8px 14px; border-radius: 6px; color: var(--accent-foreground, var(--text)); background: var(--accent); border: 0; font: inherit; }
-.feature-draft-page output { white-space: pre-wrap; }
+.rss-root {
+  --rss-line: var(--border, rgba(128, 128, 128, 0.3));
+  --rss-dim: color-mix(in srgb, var(--text, currentColor) 62%, transparent);
+  --rss-faint: color-mix(in srgb, var(--text, currentColor) 7%, transparent);
+  --rss-tint: color-mix(in srgb, var(--accent, #4a7dff) 16%, transparent);
+  position: relative; display: grid; grid-template-columns: minmax(200px, 250px) minmax(260px, 360px) minmax(0, 1fr);
+  height: 100%; min-height: 0; color: var(--text); background: var(--bg); font: inherit; overflow: hidden;
+}
+.rss-root * { box-sizing: border-box; }
+.rss-root button, .rss-root input, .rss-root select { font: inherit; color: inherit; }
+.rss-root button { cursor: pointer; background: transparent; border: 1px solid var(--rss-line); border-radius: 6px; padding: 4px 10px; }
+.rss-root button:hover:not(:disabled) { background: var(--rss-faint); }
+.rss-root button:disabled { opacity: 0.5; cursor: default; }
+.rss-root button:focus-visible, .rss-root input:focus-visible, .rss-root a:focus-visible { outline: 2px solid var(--accent, #4a7dff); outline-offset: 1px; }
+.rss-root input[type="text"], .rss-root input[type="url"], .rss-root input[type="search"], .rss-root input[type="number"], .rss-root select {
+  background: var(--bg); border: 1px solid var(--rss-line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+.rss-root .rss-primary { background: var(--accent, #4a7dff); color: var(--accent-foreground, #fff); border-color: transparent; }
+.rss-root .rss-primary:hover:not(:disabled) { background: var(--accent, #4a7dff); filter: brightness(1.08); }
+.rss-root .rss-danger { color: var(--danger, #d64545); margin-right: auto; }
+.rss-root .rss-icon { border: 0; padding: 2px 7px; font-size: 1.05em; line-height: 1.3; }
+.rss-root .rss-on { background: var(--rss-tint); }
+.rss-root .rss-link { border: 0; padding: 0; color: var(--accent, #4a7dff); text-decoration: underline; }
+.rss-muted { color: var(--rss-dim); font-size: 0.9em; }
+.rss-error { color: var(--danger, #d64545); font-size: 0.9em; }
+.rss-pad { padding: 12px 14px; }
+.rss-break { overflow-wrap: anywhere; }
+
+.rss-sidebar, .rss-list, .rss-read { min-height: 0; overflow-y: auto; }
+.rss-sidebar, .rss-list { border-right: 1px solid var(--rss-line); }
+.rss-list { display: flex; flex-direction: column; overflow: hidden; }
+.rss-bar { display: flex; align-items: center; gap: 4px; padding: 10px 12px; position: sticky; top: 0; background: var(--bg); z-index: 1; border-bottom: 1px solid var(--rss-line); }
+.rss-bar h1 { font-size: 1.05em; margin: 0 auto 0 0; }
+.rss-sidebar h2 { font-size: 0.72em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rss-dim); margin: 14px 12px 4px; }
+.rss-item { display: flex; align-items: center; margin: 1px 6px; border-radius: 6px; }
+.rss-item.rss-active { background: var(--rss-tint); }
+.rss-root .rss-item-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; text-align: left; padding: 5px 8px; }
+.rss-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rss-nested .rss-item-main { padding-left: 22px; }
+.rss-folder .rss-item-label { font-weight: 600; }
+.rss-count { font-size: 0.8em; color: var(--rss-dim); font-variant-numeric: tabular-nums; }
+.rss-warn { color: var(--danger, #d64545); font-weight: 700; }
+.rss-empty { display: grid; gap: 8px; padding: 16px 12px; justify-items: start; }
+.rss-spin { animation: rss-spin 1s linear infinite; }
+@keyframes rss-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rss-spin { animation: none; opacity: 0.5; } }
+
+.rss-search { flex: 1; }
+.rss-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px; }
+.rss-chips:not(:empty) { padding: 8px 12px; border-bottom: 1px solid var(--rss-line); }
+.rss-root .rss-chip { border-radius: 999px; font-size: 0.85em; padding: 2px 10px; background: var(--rss-faint); }
+.rss-items { flex: 1; min-height: 0; overflow-y: auto; }
+.rss-root .rss-article { display: grid; gap: 3px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rss-line); border-radius: 0; padding: 10px 14px; }
+.rss-root .rss-article.rss-active { background: var(--rss-tint); }
+.rss-article-title { font-weight: 600; line-height: 1.3; }
+.rss-article-meta { font-size: 0.8em; color: var(--rss-dim); }
+.rss-article-excerpt { font-size: 0.88em; color: var(--rss-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rss-read-item .rss-article-title { font-weight: 400; }
+.rss-read-item { opacity: 0.62; }
+.rss-root .rss-more { display: block; margin: 12px auto; }
+
+.rss-read { padding: 0 0 48px; }
+.rss-read:focus { outline: none; }
+.rss-read-head { padding: 22px 32px 12px; border-bottom: 1px solid var(--rss-line); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.rss-read-head h1 { font-size: 1.45em; line-height: 1.25; margin: 0 0 6px; max-width: 46rem; }
+.rss-read-head h1 a { color: inherit; text-decoration: none; }
+.rss-read-head h1 a:hover { text-decoration: underline; }
+.rss-read-head p { margin: 0 0 12px; }
+.rss-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rss-gap { flex: 1; }
+.rss-from-feed { padding: 10px 32px 0; margin: 0; }
+.rss-body { padding: 14px 32px; max-width: 50rem; line-height: 1.65; font-size: 1.03em; overflow-wrap: break-word; }
+.rss-body img { max-width: 100%; height: auto; border-radius: 6px; }
+.rss-body a { color: var(--accent, #4a7dff); }
+.rss-body pre { overflow-x: auto; padding: 12px; background: var(--rss-faint); border-radius: 6px; }
+.rss-body blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--rss-line); color: var(--rss-dim); }
+.rss-body table { border-collapse: collapse; display: block; overflow-x: auto; }
+.rss-body th, .rss-body td { border: 1px solid var(--rss-line); padding: 4px 8px; }
+.rss-body figure { margin: 1em 0; }
+.rss-body figcaption { font-size: 0.85em; color: var(--rss-dim); }
+.rss-placeholder { display: grid; place-content: center; height: 100%; min-height: 240px; text-align: center; gap: 4px; padding: 24px; }
+
+.rss-notice { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; max-width: min(90%, 560px);
+  padding: 8px 8px 8px 14px; border-radius: 8px; background: var(--bg); border: 1px solid var(--rss-line); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); z-index: 5; }
+.rss-notice[hidden] { display: none; }
+.rss-notice-error { border-color: var(--danger, #d64545); }
+
+.rss-dialog { color: var(--text); background: var(--bg); border: 1px solid var(--rss-line); border-radius: 10px; padding: 20px; width: min(92vw, 480px); max-height: 86vh; overflow-y: auto; }
+.rss-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.rss-dialog h2 { margin: 0 0 14px; font-size: 1.15em; }
+.rss-dialog h3 { margin: 10px 0 0; font-size: 0.95em; }
+.rss-form { display: grid; gap: 10px; }
+.rss-form label { display: grid; gap: 4px; font-size: 0.9em; }
+.rss-form .rss-check { display: flex; align-items: center; gap: 8px; }
+.rss-form p { margin: 0; }
+.rss-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.rss-row input[type="text"] { flex: 1; }
+.rss-plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rss-plain li { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9em; }
+.rss-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+@media (max-width: 900px) {
+  .rss-root { grid-template-columns: 1fr; grid-template-rows: auto minmax(180px, 38vh) 1fr; overflow-y: auto; }
+  .rss-sidebar { max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--rss-line); }
+  .rss-list { border-right: 0; border-bottom: 1px solid var(--rss-line); }
+  .rss-read-head, .rss-body, .rss-from-feed { padding-left: 16px; padding-right: 16px; }
+}

@@ -85,19 +85,19 @@ export const contract = defineFeatureContract({
       output: ArticleDetail,
       tool: { name: "rss_article", label: "Read RSS article" },
     },
-    exportOpml: {
+    export_opml: {
       kind: "query",
       description: "Export subscriptions as OPML.",
       input: Type.Object({}, closed),
       output: Type.Object({ xml: Type.String() }),
     },
-    addFeed: {
+    add_feed: {
       kind: "action",
       description: "Subscribe to a feed by its address, or by a page that advertises one.",
       input: Type.Object({ url: Type.String({ minLength: 1, maxLength: 2000 }), folder: Type.Optional(Type.String({ maxLength: 200 })) }, closed),
       output: Type.Object({ feedId: Id, title: Type.String(), added: Type.Integer(), existed: Type.Boolean() }),
     },
-    updateFeed: {
+    update_feed: {
       kind: "action",
       description: "Rename a feed, move it to a folder, or reorder it.",
       input: Type.Object({
@@ -106,7 +106,7 @@ export const contract = defineFeatureContract({
       }, closed),
       output: Ok,
     },
-    removeFeed: {
+    remove_feed: {
       kind: "action",
       description: "Unsubscribe from a feed. Saved stories are kept.",
       input: Type.Object({ id: Id }, closed),
@@ -141,31 +141,31 @@ export const contract = defineFeatureContract({
       input: Type.Object({ id: Id }, closed),
       output: ArticleDetail,
     },
-    importOpml: {
+    import_opml: {
       kind: "action",
       description: "Import subscriptions from OPML.",
       input: Type.Object({ xml: Type.String({ minLength: 1, maxLength: 2_000_000 }) }, closed),
       output: Type.Object({ added: Type.Integer(), skipped: Type.Integer(), total: Type.Integer() }),
     },
-    setSettings: {
+    set_settings: {
       kind: "action",
       description: "Change reader settings.",
       input: Type.Partial(Settings, closed),
       output: Settings,
     },
-    addRule: {
+    add_rule: {
       kind: "action",
       description: "Add a mute rule: hide articles containing a phrase, in all feeds or one.",
       input: Type.Object({ phrase: Type.String({ minLength: 1, maxLength: 200 }), feedId: Type.Optional(NullableId) }, closed),
       output: Type.Object({ id: Id }),
     },
-    removeRule: {
+    remove_rule: {
       kind: "action",
       description: "Remove a mute rule.",
       input: Type.Object({ id: Id }, closed),
       output: Ok,
     },
-    addSearch: {
+    add_search: {
       kind: "action",
       description: "Save the current search and filters under a name.",
       input: Type.Object({
@@ -174,7 +174,7 @@ export const contract = defineFeatureContract({
       }, closed),
       output: Type.Object({ id: Id }),
     },
-    removeSearch: {
+    remove_search: {
       kind: "action",
       description: "Remove a saved search.",
       input: Type.Object({ id: Id }, closed),

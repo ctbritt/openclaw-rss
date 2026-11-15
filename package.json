@@ -29,7 +29,7 @@
     "@types/node": "^26.6.6",
     "@types/sanitize-html": "^2.16.2",
     "esbuild": "0.28.2",
-    "openclaw": "latest",
+    "openclaw": "^2026.11.5-beta.3",
     "typescript": "7.0.2"
   },
   "openclaw": {
