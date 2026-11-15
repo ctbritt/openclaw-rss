@@ -13,13 +13,15 @@ export default defineFeaturePlugin({
   name: "RSS",
   description: "A reading room for RSS and Atom feeds in the Control UI, with the same library available to the agent.",
   setup(api, events) {
+    // Announcing a change must never fail the change itself (the emitter is only live while the Gateway service runs).
+    const changed = (reason: string) => { try { events.emit("changed", { reason }); } catch { /* no listeners yet */ } };
     // Opened on first use so discovery-only loads never create the library file.
     let library: Library | null = null;
     const lib = (): Library => {
       library ??= new Library(
         new Store(process.env.OPENCLAW_RSS_DB ?? path.join(resolveStateDir(), "rss", "library.db")),
         guardedFetch,
-        (reason) => { try { events.emit("changed", { reason }); } catch { /* service not started yet */ } },
+        (reason) => changed(reason),
         (text) => api.logger.info(`[rss] ${text}`),
       );
       return library;
@@ -53,7 +55,10 @@ export default defineFeaturePlugin({
       },
     });
 
-    const changed = (reason: string) => events.emit("changed", { reason });
+    const attempt = async <T>(work: () => T | Promise<T>): Promise<T | { error: string }> => {
+      try { return await work(); }
+      catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
+    };
     const article = (id: number) => {
       const found = lib().store.getArticle(id);
       if (!found) throw new Error("That article is no longer in the library.");
@@ -70,9 +75,9 @@ export default defineFeaturePlugin({
         };
       },
       articles: (query) => lib().store.listArticles(query),
-      article: ({ id }) => article(id),
+      article: ({ id }) => attempt(() => article(id)),
       export_opml: () => ({ xml: lib().exportOpml() }),
-      add_feed: ({ url, folder }) => lib().addFeed(url, folder),
+      add_feed: ({ url, folder }) => attempt(() => lib().addFeed(url, folder)),
       update_feed: ({ id, title, folder, move }) => {
         lib().store.updateFeed(id, { title, folder });
         if (move) lib().store.moveFeed(id, move);
@@ -91,10 +96,10 @@ export default defineFeaturePlugin({
         return { changed: count };
       },
       save: ({ id, saved }) => { lib().store.setSaved(id, saved); changed("saved-state"); return { ok: true }; },
-      capture: async ({ id }) => { await lib().capture(id); return article(id); },
-      import_opml: ({ xml }) => lib().importOpml(xml),
+      capture: ({ id }) => attempt(async () => { await lib().capture(id); return article(id); }),
+      import_opml: ({ xml }) => attempt(() => lib().importOpml(xml)),
       set_settings: (patch) => { const next = lib().store.setSettings(patch); changed("settings"); return next; },
-      add_rule: ({ phrase, feedId }) => { const id = lib().store.addRule(phrase, feedId ?? null); changed("rules"); return { id }; },
+      add_rule: ({ phrase, feedId }) => attempt(() => { const id = lib().store.addRule(phrase, feedId ?? null); changed("rules"); return { id }; }),
       remove_rule: ({ id }) => { lib().store.removeRule(id); changed("rules"); return { ok: true }; },
       add_search: (search) => { const id = lib().store.addSearch(search); changed("searches"); return { id }; },
       remove_search: ({ id }) => { lib().store.removeSearch(id); changed("searches"); return { ok: true }; },

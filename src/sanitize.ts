@@ -53,13 +53,9 @@ export function cleanHtml(html: string, baseUrl?: string): string {
   }).trim();
 }
 
-/** Plain text for excerpts, search and mute rules. */
+/** Plain text for excerpts, search and mute rules. Block boundaries become spaces; inline tags vanish. */
 export function htmlToText(html: string): string {
-  const stripped = sanitizeHtml(html, {
-    allowedTags: [],
-    allowedAttributes: {},
-    nonTextTags: NON_TEXT,
-    textFilter: (text) => text + " ",
-  });
+  const spaced = html.replace(/<\/?(p|div|li|ul|ol|h[1-6]|br|hr|tr|td|th|blockquote|figure|figcaption|pre|table)\b[^>]*>/giu, " $& ");
+  const stripped = sanitizeHtml(spaced, { allowedTags: [], allowedAttributes: {}, nonTextTags: NON_TEXT });
   return collapse(decodeEntities(stripped));
 }

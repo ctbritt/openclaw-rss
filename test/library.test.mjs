@@ -293,3 +293,8 @@ test("library: OPML import skips duplicates and export lists everything", () => 
   assert.throws(() => library.importOpml("<nope/>"), /OPML/);
   store.close();
 });
+
+test("plain text keeps inline words together and separates blocks", () => {
+  assert.equal(htmlToText("<p>This is <em>The Stepback</em>, a <a href='#'>weekly</a> letter.</p><p>Next</p><ul><li>a</li><li>b</li></ul>"),
+    "This is The Stepback, a weekly letter. Next a b");
+});

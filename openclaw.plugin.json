@@ -11,17 +11,17 @@
   "activation": {
     "onStartup": true
   },
+  "controlUi": {
+    "entry": "dist/control-ui/eb863572a17c0416ab57c54ca2011581e216b013d24c4223e19933586050ae5e/index.js",
+    "styles": [
+      "dist/control-ui/eb863572a17c0416ab57c54ca2011581e216b013d24c4223e19933586050ae5e/index.css"
+    ]
+  },
   "contracts": {
     "tools": [
       "rss_article",
       "rss_articles",
       "rss_feeds"
-    ]
-  },
-  "controlUi": {
-    "entry": "dist/control-ui/432992b1aecf7e968fe1f66a32c169e3e03542a4c2e952e9fbd0345c7b6cbdf8/index.js",
-    "styles": [
-      "dist/control-ui/432992b1aecf7e968fe1f66a32c169e3e03542a4c2e952e9fbd0345c7b6cbdf8/index.css"
     ]
   }
 }

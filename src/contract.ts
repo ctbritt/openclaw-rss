@@ -38,6 +38,10 @@ const SavedSearch = Type.Object({
 });
 
 const Ok = Type.Object({ ok: Type.Boolean() });
+// The host hides thrown error text from the screen, so expected failures (a dead address, an
+// unreadable file, a page with no article) travel in the result instead.
+const Failure = Type.Object({ error: Type.String() });
+const orFailure = <T extends Parameters<typeof Type.Union>[0][number]>(success: T) => Type.Union([success, Failure]);
 const RefreshReport = Type.Object({
   feeds: Type.Integer(), added: Type.Integer(),
   errors: Type.Array(Type.Object({ feedId: Id, error: Type.String() })),
@@ -82,7 +86,7 @@ export const contract = defineFeatureContract({
       kind: "query",
       description: "Read one article from the RSS library by id, including its text.",
       input: Type.Object({ id: Id }, closed),
-      output: ArticleDetail,
+      output: orFailure(ArticleDetail),
       tool: { name: "rss_article", label: "Read RSS article" },
     },
     export_opml: {
@@ -95,7 +99,7 @@ export const contract = defineFeatureContract({
       kind: "action",
       description: "Subscribe to a feed by its address, or by a page that advertises one.",
       input: Type.Object({ url: Type.String({ minLength: 1, maxLength: 2000 }), folder: Type.Optional(Type.String({ maxLength: 200 })) }, closed),
-      output: Type.Object({ feedId: Id, title: Type.String(), added: Type.Integer(), existed: Type.Boolean() }),
+      output: orFailure(Type.Object({ feedId: Id, title: Type.String(), added: Type.Integer(), existed: Type.Boolean() })),
     },
     update_feed: {
       kind: "action",
@@ -139,13 +143,13 @@ export const contract = defineFeatureContract({
       kind: "action",
       description: "Load the readable text of an article from its original page.",
       input: Type.Object({ id: Id }, closed),
-      output: ArticleDetail,
+      output: orFailure(ArticleDetail),
     },
     import_opml: {
       kind: "action",
       description: "Import subscriptions from OPML.",
       input: Type.Object({ xml: Type.String({ minLength: 1, maxLength: 2_000_000 }) }, closed),
-      output: Type.Object({ added: Type.Integer(), skipped: Type.Integer(), total: Type.Integer() }),
+      output: orFailure(Type.Object({ added: Type.Integer(), skipped: Type.Integer(), total: Type.Integer() })),
     },
     set_settings: {
       kind: "action",
@@ -157,7 +161,7 @@ export const contract = defineFeatureContract({
       kind: "action",
       description: "Add a mute rule: hide articles containing a phrase, in all feeds or one.",
       input: Type.Object({ phrase: Type.String({ minLength: 1, maxLength: 200 }), feedId: Type.Optional(NullableId) }, closed),
-      output: Type.Object({ id: Id }),
+      output: orFailure(Type.Object({ id: Id })),
     },
     remove_rule: {
       kind: "action",

@@ -6,7 +6,7 @@ import "./control-ui.css";
 
 type Overview = FeatureOutput<typeof contract, "overview">;
 type Summary = FeatureOutput<typeof contract, "articles">["items"][number];
-type Detail = FeatureOutput<typeof contract, "article">;
+type Detail = Exclude<FeatureOutput<typeof contract, "article">, { error: string }>;
 type View = "all" | "unread" | "saved";
 type Scope = { kind: "library" } | { kind: "feed"; feedId: number } | { kind: "folder"; folder: string };
 
@@ -19,6 +19,14 @@ const PROMPTS = {
   discuss: "I want to discuss this article. Start with the two or three most important points and anything that looks questionable, then wait for my questions.",
   sources: "Find additional independent sources for the main claims in this article. For each claim, say whether other reporting supports it, contradicts it, or is silent, and link what you find. Do not give an overall truth score.",
 } as const;
+
+/** Expected failures arrive as `{ error }` results; turn them back into ordinary errors. */
+function unwrap<T>(result: T | { error: string }): T {
+  if (typeof result === "object" && result !== null && "error" in result && typeof (result as { error: unknown }).error === "string") {
+    throw new Error((result as { error: string }).error);
+  }
+  return result as T;
+}
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -124,7 +132,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   const open = async (id: number) => {
     state.selectedId = id;
     renderList();
-    const article = await guard(() => api.invoke("article", { id }));
+    const article = await guard(async () => unwrap(await api.invoke("article", { id })));
     if (!article || signal.aborted || state.selectedId !== id) return;
     state.article = article;
     renderRead();
@@ -243,7 +251,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       if (!url.value.trim()) return;
       submit.disabled = true; status.textContent = "Fetching…";
       try {
-        const result = await api.invoke("add_feed", { url: url.value.trim(), ...(folder.value.trim() ? { folder: folder.value.trim() } : {}) });
+        const result = unwrap(await api.invoke("add_feed", { url: url.value.trim(), ...(folder.value.trim() ? { folder: folder.value.trim() } : {}) }));
         box.close();
         say(result.existed ? `Already subscribed to ${result.title}.` : `Subscribed to ${result.title} (${result.added} articles).`);
         await loadOverview();
@@ -294,7 +302,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       h("h3", {}, "Mute rules"), h("p", { class: "rss-muted" }, "Muted articles are hidden, not deleted. Matching ignores case."),
       h("div", { class: "rss-row" }, mute, muteScope, h("button", { type: "button", onclick: async () => {
         if (!mute.value.trim()) return;
-        await guard(() => api.invoke("add_rule", { phrase: mute.value.trim(), feedId: muteScope.value ? Number(muteScope.value) : null }));
+        await guard(async () => unwrap(await api.invoke("add_rule", { phrase: mute.value.trim(), feedId: muteScope.value ? Number(muteScope.value) : null })));
         say("Mute rule added."); box.close();
       } }, "Mute")),
       rules, h("h3", {}, "Saved searches"), searches);
@@ -317,7 +325,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     file.addEventListener("change", async () => {
       const chosen = file.files?.[0];
       if (!chosen) return;
-      const result = await guard(async () => api.invoke("import_opml", { xml: await chosen.text() }));
+      const result = await guard(async () => unwrap(await api.invoke("import_opml", { xml: await chosen.text() })));
       if (!result) return;
       say(`Imported ${result.added} feed${result.added === 1 ? "" : "s"}${result.skipped ? `, skipped ${result.skipped} already subscribed` : ""}. Fetching articles…`);
       box.close();
@@ -453,7 +461,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     }
     const capture = h("button", { onclick: async () => {
       capture.disabled = true; capture.textContent = "Loading…";
-      const full = await guard(() => api.invoke("capture", { id: article.id }));
+      const full = await guard(async () => unwrap(await api.invoke("capture", { id: article.id })));
       if (full && state.selectedId === article.id) { state.article = full; patchItem(full.id, { hasFull: full.hasFull }); }
       renderRead();
     } }, article.fullHtml ? "Reload full article" : "Load full article");
