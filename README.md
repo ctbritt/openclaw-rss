@@ -18,7 +18,7 @@ Keyboard shortcuts: **j/k** move between articles, **s** saves, **m** toggles re
 
 ## Requirements and installation
 
-Requires OpenClaw **2026.11.5-beta.3 or later** and its supported Node.js runtime.
+Requires OpenClaw **2026.11.3 or later** and its supported Node.js runtime.
 
 Install from ClawHub:
 
@@ -67,6 +67,13 @@ The reader limits subscriptions to 200 feeds, processes up to 100 entries per fe
 - Grading quality depends on the selected model and rubric. No model-quality benchmark is claimed for this release.
 
 ## Development
+
+The build pins OpenClaw 2026.11.3 so releases stay compatible with stable. If your installed OpenClaw is newer, the pinned CLI may refuse your state database; build against an empty one instead:
+
+```sh
+mkdir -p /tmp/rss-build && echo '{}' > /tmp/rss-build/openclaw.json
+OPENCLAW_STATE_DIR=/tmp/rss-build OPENCLAW_CONFIG_PATH=/tmp/rss-build/openclaw.json npm run build
+```
 
 ```sh
 npm test

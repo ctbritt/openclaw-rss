@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Runs on OpenClaw 2026.11.3 stable and later (previously required 2026.11.5-beta.3).
+- Decision-model grading no longer sends a request priority hint, which 2026.11.3 does not support.
+
 ## 0.1.0 — Initial release candidate
 
 - Native theme-aware RSS/Atom reader with folders, unread and saved state.

@@ -2,7 +2,7 @@
   "id": "rss",
   "name": "RSS",
   "description": "A reading room for RSS and Atom feeds in the Control UI, with the same library available to the agent.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -12,9 +12,9 @@
     "onStartup": true
   },
   "controlUi": {
-    "entry": "dist/control-ui/90c8bdd9f36acb9612b996f481fdcc6a728dc1f98ea9afd0201bd84c59041bd4/index.js",
+    "entry": "dist/control-ui/00dc28c8fd15508286f72991002035d4a3a3095e684d6803535e5f093f7dbc23/index.js",
     "styles": [
-      "dist/control-ui/90c8bdd9f36acb9612b996f481fdcc6a728dc1f98ea9afd0201bd84c59041bd4/index.css"
+      "dist/control-ui/00dc28c8fd15508286f72991002035d4a3a3095e684d6803535e5f093f7dbc23/index.css"
     ]
   },
   "reload": {

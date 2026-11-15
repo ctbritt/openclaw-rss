@@ -40,7 +40,7 @@ export default defineFeaturePlugin({
         async ({ story, instructions, criteria }) => {
           const outcome = await api.runtime.decisions.evaluate(
             { state: story, questions: { grade: { type: "choice", instructions, criteria } } },
-            { purpose: "rss.grading", rubricVersion: "1", timeoutMs: 20_000, priority: "optional", signal: AbortSignal.timeout(25_000) },
+            { purpose: "rss.grading", rubricVersion: "1", timeoutMs: 20_000, signal: AbortSignal.timeout(25_000) },
           );
           if (outcome.status !== "ok") throw new Error(`The decision model is unavailable${"reason" in outcome && outcome.reason ? `: ${String(outcome.reason)}` : "."}`);
           const answer = outcome.result.answers.grade;
