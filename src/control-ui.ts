@@ -338,7 +338,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     const rubric = h("textarea", { rows: "5", placeholder: "Leave empty for the standard rubric, or describe in your own words what counts as important, interesting, normal and spam.", "aria-label": "What matters to you" });
     rubric.value = current.gradingRubric;
     // Filled from OpenClaw's own model list; the saved choice stays selectable even if the list fails to load.
-    const decisionOption = () => h("option", { value: "decision" }, "OpenClaw's decision model (Clef): sorts fast, gives no written reason");
+    const decisionOption = () => h("option", { value: "decision" }, "OpenClaw's configured decision model: grades without a written reason");
     const model = h("select", { "aria-label": "Grading model" }, h("option", { value: "" }, "OpenClaw's default model"), decisionOption());
     if (current.gradingModel === "decision") model.value = "decision";
     else if (current.gradingModel) model.append(h("option", { value: current.gradingModel, selected: true }, current.gradingModel));

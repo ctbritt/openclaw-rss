@@ -1,77 +1,84 @@
-# OpenClaw RSS
+# RSS for OpenClaw
 
-A reading room for RSS and Atom feeds inside the OpenClaw Control UI: subscriptions on the left,
-articles in the middle, the story on the right. The library lives on the Gateway machine, and the
-agent can read the same library through three tools.
+A native, theme-aware RSS and Atom reader for the OpenClaw Control UI, with optional AI importance grading.
 
-Private project. Modelled feature-for-feature on the community `hermes-rss` plugin for Hermes
-Desktop, rebuilt natively for OpenClaw (none of its code is used).
+## Features
 
-## What it does
+- Three-pane reader with subscriptions, folders, unread counts, saved articles, and keyboard navigation.
+- RSS 2.0, RSS 1.0/RDF, and Atom feeds, including feed discovery from a website address.
+- Case-insensitive search, exclusions, saved searches, and mute rules. Muting hides articles rather than deleting them.
+- Full-text extraction and a button that switches between the full article and the feed summary. Optional background extraction does not bypass paywalls.
+- Automatic refresh every 30 minutes by default, configurable from 1 to 1,440 minutes, with conditional HTTP requests.
+- OPML import and export. Unsubscribing preserves saved articles.
+- Summarize, Discuss, and Find sources actions open an agent conversation with article context.
+- Optional importance grading: Important, Interesting, Normal, or Spam; built-in Important, Interesting, and Hide spam filters; a configurable rubric and model selector.
+- OpenClaw’s configured decision model can grade without generating a written reason.
 
-- **Read.** RSS 2.0, RSS 1.0 (RDF) and Atom. Add a feed by its address, or give a site address and
-  the reader finds the feed the site advertises.
-- **Remember.** Read and saved state, folders, manual ordering. Unsubscribing keeps saved stories.
-- **Search and mute.** Literal, case-insensitive search and exclusion; saved searches in the
-  sidebar; mute rules for all feeds or one. Muted stories are hidden, never deleted.
-- **Full articles.** "Load full article" fetches the original page and keeps its readable text.
-  Optional background fetching after each refresh (two workers, queue of 80). No paywall bypass.
-- **Refresh.** On demand, or automatically every 1 to 1,440 minutes (default 30) while the Gateway
-  runs. Feeds that have not changed are not downloaded again.
-- **OPML.** Import and export from Settings.
-- **Agent in the room.** Summarize, Discuss and Find sources open a conversation with the agent
-  beside the article, with the article text attached as material to analyze.
-- **Agent tools.** `rss_feeds`, `rss_articles`, `rss_article` (read-only).
-- **Keyboard.** `j`/`k` move, `s` save, `m` read/unread, `o` open original, `r` refresh, `/` search.
+Keyboard shortcuts: **j/k** move between articles, **s** saves, **m** toggles read state, **o** opens the original, **r** refreshes, and **/** searches.
 
-Limits: 200 feeds, 100 entries per refresh, 300 unsaved stories kept per feed.
+## Requirements and installation
 
-## Not built yet (present in hermes-rss)
+Requires OpenClaw **2026.11.5-beta.3 or later** and its supported Node.js runtime.
 
-- Automatic AI grading of new articles with a tunable rubric.
-- Inline summaries whose quoted passages are checked against the article text. Today a summary is
-  a conversation with the agent, and the quotes are not machine-verified.
-- Drag-to-reorder (ordering uses up/down buttons in edit mode).
-
-## Safety
-
-- Publisher HTML is untrusted. It is sanitized on the Gateway before storage and rebuilt from an
-  allowlist again in the browser. Scripts, frames, forms, styles and event handlers never render.
-- Downloads go through OpenClaw's guarded fetch: private and loopback addresses are refused on
-  every redirect, and addresses with embedded credentials are rejected.
-- Images are off by default. When on, they load straight from publishers (who then see your IP).
-- Article text sent to the agent is labelled as material, not instructions.
-
-## Where things live
-
-| | |
-|---|---|
-| Library (SQLite) | `~/.openclaw/rss/library.db` on the Gateway machine |
-| Engine | `src/library.ts`, `src/store.ts`, `src/feed-parse.ts`, `src/sanitize.ts`, `src/opml.ts` |
-| Operations shared by screen and agent | `src/contract.ts`, `src/index.ts` |
-| Screen | `src/control-ui.ts`, `src/control-ui.css`, `src/ui/dom.ts` |
-| Tests | `test/library.test.mjs` |
-| Browser preview without a Gateway | `dev/serve.mjs` |
-
-## Working on it
+Install from ClawHub:
 
 ```sh
-npm install
-npm test                 # compile + engine tests
-npm run build            # compile + bundle the screen
-npm run validate
-node dev/serve.mjs       # preview at http://127.0.0.1:4173/ with a throwaway library
+openclaw plugins install clawhub:@ctbritt/openclaw-rss
 ```
 
-The Gateway runs this folder directly (installed with `openclaw plugins install --link .`).
-After a change: `npm run build`, then `openclaw plugins reload rss`. Reload the browser tab if only
-the screen changed.
+Or build from source:
 
-Two things the plugin toolkit enforces that are easy to trip on:
+```sh
+git clone https://github.com/ctbritt/openclaw-rss.git
+cd openclaw-rss
+npm install
+npm test
+npm run build
+npm run validate
+openclaw plugins install --link .
+```
 
-- Operation names must be lowercase (`add_feed`, not `addFeed`).
-- Error text thrown by an operation is hidden from the screen. Expected failures are returned as
-  `{ error }` results instead (see `attempt` in `src/index.ts`, `unwrap` in `src/control-ui.ts`).
+The repository may require GitHub access before public release. Open RSS in the Control UI sidebar, add a feed or import OPML, and configure reading and grading preferences in Settings.
 
-Keep the `openclaw` dev dependency on the same version as the running Gateway; an older copy
-refuses to build against a newer state database.
+## Data, models, and privacy
+
+The library is stored locally in `~/.openclaw/rss/library.db`. Article fetching contacts publishers’ websites. Images are off by default; displaying publisher-hosted images makes requests to those publishers, exposing the requesting device’s IP address.
+
+AI grading is optional. The selected model receives article text for grading. Local models keep inference local; cloud providers receive that text and may charge for usage. The decision-model option uses the decision provider configured in OpenClaw—it is not necessarily local. Agent conversation actions use the conversation’s configured model.
+
+## Agent tools
+
+Three read-only tools expose the same library:
+
+- `rss_feeds`: subscriptions, folders, unread counts, and settings.
+- `rss_articles`: article lists with search and grade filters.
+- `rss_article`: one article’s text and metadata.
+
+## Safety and limits
+
+Article HTML is sanitized to remove scripts, frames, forms, styles, event handlers, and other active content. Network fetching rejects private and loopback destinations, embedded credentials, and unsafe redirects. Article content is untrusted input, including during grading.
+
+The reader limits subscriptions to 200 feeds, processes up to 100 entries per feed refresh, and retains up to 300 unsaved articles per feed. Background full-text extraction uses two workers and a bounded queue of 80 articles.
+
+## Current limitations
+
+- Conversation summaries are not machine-checked against article quotations; there are no quote-verified inline summaries.
+- Feed ordering uses up/down controls, not drag-and-drop.
+- Grading quality depends on the selected model and rubric. No model-quality benchmark is claimed for this release.
+
+## Development
+
+```sh
+npm test
+npm run build
+npm run validate
+npm run pack
+```
+
+`src/library.ts` coordinates the library; `src/store.ts` stores it; `src/feed-parse.ts`, `src/sanitize.ts`, and `src/opml.ts` handle input. `src/index.ts` registers the plugin, `src/contract.ts` defines shared contracts, and `src/control-ui.ts` / CSS implement the reader. Tests live in `test/`.
+
+`node dev/serve.mjs` provides a local preview on port 4173 with a separate development library.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Release notes are in [CHANGELOG.md](CHANGELOG.md).
