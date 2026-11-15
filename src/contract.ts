@@ -15,6 +15,7 @@ const Settings = Type.Object({
   backgroundCapture: Type.Boolean(),
   aiGrading: Type.Boolean(),
   gradingRubric: Type.String({ maxLength: 4000 }),
+  gradingModel: Type.String({ maxLength: 200 }),
 });
 
 const Feed = Type.Object({

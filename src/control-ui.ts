@@ -325,6 +325,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     const grading = check(current.aiGrading);
     const rubric = h("textarea", { rows: "5", placeholder: "Leave empty for the standard rubric, or describe in your own words what counts as important, interesting, normal and spam.", "aria-label": "What matters to you" });
     rubric.value = current.gradingRubric;
+    const model = h("input", { type: "text", placeholder: "OpenClaw's default", value: current.gradingModel, "aria-label": "Grading model", spellcheck: "false" });
     const status = state.overview?.grading;
     const gradeStatus = h("p", { class: status?.lastError ? "rss-error" : "rss-muted", "aria-live": "polite" },
       status?.lastError ? `Last grading run failed: ${status.lastError}` : status?.running ? `Grading now, ${status.remaining.toLocaleString()} to go.` : status?.remaining ? `${status.remaining.toLocaleString()} articles not graded yet.` : "Every article is graded.");
@@ -367,6 +368,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       h("label", { class: "rss-check" }, grading, "Grade new articles as important, interesting, normal or spam"),
       h("label", {}, "What matters to you", rubric),
       h("p", { class: "rss-muted" }, "Changing this regrades the whole library."),
+      h("label", {}, "Model (provider/model; needs the plugin's model override allowed in OpenClaw config)", model),
       h("div", { class: "rss-row" }, h("button", { type: "button", onclick: gradeNow(false) }, "Grade now"), h("button", { type: "button", onclick: gradeNow(true) }, "Regrade everything")),
       gradeStatus,
       h("h3", {}, "Subscriptions"),
@@ -376,7 +378,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         await guard(() => api.invoke("set_settings", {
           autoRefresh: auto.checked, refreshMinutes: Math.min(1440, Math.max(1, Math.round(Number(minutes.value) || 30))),
           markReadOnOpen: markRead.checked, loadImages: images.checked, backgroundCapture: capture.checked,
-          aiGrading: grading.checked, gradingRubric: rubric.value.trim(),
+          aiGrading: grading.checked, gradingRubric: rubric.value.trim(), gradingModel: model.value.trim(),
         }));
         box.close(); await loadOverview(); renderRead();
       } }, "Save")]);

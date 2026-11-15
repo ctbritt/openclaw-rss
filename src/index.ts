@@ -24,7 +24,9 @@ export default defineFeaturePlugin({
         (reason) => changed(reason),
         (text) => api.logger.info(`[rss] ${text}`),
         async ({ system, input, maxTokens }) => {
+          const model = lib().store.getSettings().gradingModel;
           const result = await api.runtime.llm.complete({
+            ...(model ? { model } : {}),
             systemPrompt: system,
             messages: [{ role: "user", content: input }],
             purpose: "rss.grading",

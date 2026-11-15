@@ -22,6 +22,8 @@ export type Settings = {
   aiGrading: boolean;
   /** The reader's own words on what matters; empty means the built-in rubric. */
   gradingRubric: string;
+  /** Model to grade with, as provider/model; empty means whatever OpenClaw gives the plugin by default. */
+  gradingModel: string;
 };
 
 export const GRADE_LEVELS = ["important", "interesting", "normal", "spam"] as const;
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   backgroundCapture: true,
   aiGrading: true,
   gradingRubric: "",
+  gradingModel: "",
 };
 
 export type FeedRow = {
@@ -198,6 +201,7 @@ export class Store {
       if (!(key in settings)) continue;
       try { (settings as Record<string, unknown>)[key] = JSON.parse(String(row.value)); } catch { /* keep default */ }
     }
+    settings.gradingModel = clip(String(settings.gradingModel ?? "").trim(), 200);
     settings.gradingRubric = clip(String(settings.gradingRubric ?? ""), 4000);
     settings.refreshMinutes = Math.min(1440, Math.max(1, Math.round(Number(settings.refreshMinutes) || DEFAULT_SETTINGS.refreshMinutes)));
     return settings;
