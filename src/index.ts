@@ -122,7 +122,13 @@ export default defineFeaturePlugin({
         lib().gradeIfDue();
         return next;
       },
-      grade: ({ regrade }) => attempt(() => { if (regrade) lib().store.clearGrades(); return lib().gradePending({ manual: true }); }),
+      // Starts the run and answers at once: a model call can take a minute, and the reader must stay usable meanwhile.
+      grade: ({ regrade }) => attempt(() => {
+        if (regrade) lib().store.clearGrades();
+        const remaining = lib().store.ungradedCount();
+        void lib().gradePending({ manual: true }).catch(() => {});
+        return { graded: 0, remaining };
+      }),
       add_rule: ({ phrase, feedId }) => attempt(() => { const id = lib().store.addRule(phrase, feedId ?? null); changed("rules"); return { id }; }),
       remove_rule: ({ id }) => { lib().store.removeRule(id); changed("rules"); return { ok: true }; },
       add_search: (search) => { const id = lib().store.addSearch(search); changed("searches"); return { id }; },

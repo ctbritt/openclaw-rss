@@ -98,6 +98,9 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   const loadOverview = async () => {
     const overview = await guard(() => api.invoke("overview", {}));
     if (!overview || signal.aborted) return;
+    // Say so once when background grading starts failing, instead of leaving the list silently untagged.
+    const failure = overview.grading.lastError;
+    if (failure && failure !== state.overview?.grading.lastError && state.overview) say(`Grading failed: ${failure}`, "error");
     state.overview = overview;
     if (state.scope.kind === "feed" && !overview.feeds.some((feed) => state.scope.kind === "feed" && feed.id === state.scope.feedId)) state.scope = { kind: "library" };
     renderSidebar();
@@ -367,7 +370,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       button.disabled = true; gradeStatus.className = "rss-muted"; gradeStatus.textContent = "Grading…";
       try {
         const result = unwrap(await api.invoke("grade", regrade ? { regrade: true } : {}));
-        gradeStatus.textContent = `Graded ${result.graded.toLocaleString()}; ${result.remaining.toLocaleString()} to go${result.remaining ? " (the rest continue in the background)" : ""}.`;
+        gradeStatus.textContent = result.remaining ? `Grading started: ${result.remaining.toLocaleString()} to go. Tags appear in the list as each batch finishes.` : "Every article is already graded.";
       } catch (error) { gradeStatus.className = "rss-error"; gradeStatus.textContent = errorText(error); }
       button.disabled = false;
       void reload();
@@ -515,7 +518,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         try { localStorage.setItem(quickKey, JSON.stringify({ hideSpam: state.hideSpam })); } catch { /* not remembered */ }
         state.selectedId = null; state.article = null;
         renderQuick(); renderRead(); void loadList();
-      } }, label);
+      } }, state[key] ? "✓ " : "", label);
     quick.append(
       toggle("Important", "important", "rss-grade-important", "Show only stories graded important"),
       toggle("Interesting", "interesting", "rss-grade-interesting", "Show only stories graded interesting"),

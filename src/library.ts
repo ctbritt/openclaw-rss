@@ -225,6 +225,7 @@ export class Library {
     this.grading = run().catch((error: unknown) => {
       this.gradingError = message(error);
       this.log(`grading failed: ${this.gradingError}`);
+      if (!this.stopping) this.changed("grading-failed");
       if (options.manual) throw error;
       return { graded: 0, remaining: this.stopping ? 0 : this.store.ungradedCount() };
     }).finally(() => { this.grading = null; });
