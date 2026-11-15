@@ -5,7 +5,7 @@ import { decodeBody } from "./decode.js";
 import type { Fetcher } from "./net-types.js";
 import { buildOpml, parseOpml } from "./opml.js";
 import { cleanHtml, htmlToText } from "./sanitize.js";
-import { firstImage, GRADE_LEVELS, LIMITS, type Grade, type GradeLevel, type NewArticle, type Store } from "./store.js";
+import { firstImage, GRADE_LEVELS, LIMITS, type ArticleDetail, type Grade, type GradeLevel, type NewArticle, type Store } from "./store.js";
 import { clip, safeHttpUrl } from "./text.js";
 
 const FEED_BYTES = 4 * 1024 * 1024;
@@ -27,6 +27,28 @@ async function pool<T>(items: T[], workers: number, run: (item: T) => Promise<vo
   await Promise.all(Array.from({ length: Math.min(workers, items.length) }, async () => {
     while (next < items.length) await run(items[next++]!);
   }));
+}
+
+const WIRE_PART_CHARS = 60_000;
+const WIRE_BYTES = 200_000;
+
+/**
+ * Shape one article for the screen or the agent. OpenClaw caps a reply at 262,144 bytes and any
+ * one string at 65,536 characters, so only one body is sent, in pieces, and a body too large to
+ * fit falls back to its plain text.
+ */
+export function articleForWire(article: ArticleDetail, want: "feed" | "full" = "full") {
+  const { html: feedHtml, fullHtml, ...rest } = article;
+  const showing: "feed" | "full" = want === "full" && fullHtml !== null ? "full" : "feed";
+  let body = showing === "full" ? fullHtml ?? "" : feedHtml;
+  if (Buffer.byteLength(body, "utf8") > WIRE_BYTES) {
+    let text = htmlToText(body);
+    while (Buffer.byteLength(text, "utf8") > WIRE_BYTES - 20_000) text = text.slice(0, Math.floor(text.length * 0.9));
+    body = `<p><em>This article is too long to show with its formatting; this is its plain text.</em></p><p>${text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;")}</p>`;
+  }
+  const parts: string[] = [];
+  for (let at = 0; at < body.length; at += WIRE_PART_CHARS) parts.push(body.slice(at, at + WIRE_PART_CHARS));
+  return { ...rest, parts, showing };
 }
 
 const GRADING_BATCH = 40;

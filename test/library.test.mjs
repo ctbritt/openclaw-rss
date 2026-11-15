@@ -366,3 +366,23 @@ test("ranking filters: pick levels, and hide spam without hiding ungraded storie
   assert.equal(store.listArticles({}).total, 4);
   store.close();
 });
+
+test("an article of any size fits OpenClaw's reply limits", async () => {
+  const { articleForWire } = await import("../dist/library.js");
+  const base = { id: 1, feedId: 1, feedTitle: "F", title: "T", author: "", url: null, publishedAt: 0, excerpt: "", image: null, read: false, saved: false, hasFull: true, grade: null, fullStatus: "done" };
+  const fits = (wire) => {
+    assert.ok(wire.parts.every((part) => part.length <= 60000));
+    assert.ok(Buffer.byteLength(JSON.stringify(wire), "utf8") <= 262144);
+    assert.equal("html" in wire || "fullHtml" in wire, false);
+  };
+  const medium = "<p>" + "word ".repeat(30000) + "</p>"; // 150,000 characters: more than one string may hold
+  const wire = articleForWire({ ...base, html: "<p>feed</p>", fullHtml: medium });
+  fits(wire);
+  assert.equal(wire.showing, "full");
+  assert.equal(wire.parts.join(""), medium);
+  const huge = articleForWire({ ...base, html: "<p>feed</p>", fullHtml: "<p>" + "كلمة ".repeat(80000) + "</p>" }); // ~720 KB of Arabic
+  fits(huge);
+  assert.match(huge.parts[0], /too long to show/);
+  assert.deepEqual(articleForWire({ ...base, html: "<p>feed</p>", fullHtml: medium }, "feed").parts, ["<p>feed</p>"]);
+  assert.equal(articleForWire({ ...base, hasFull: false, html: "<p>feed</p>", fullHtml: null }).showing, "feed");
+});

@@ -213,7 +213,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     if (!article) return;
     const agentId = host.agents.selectedId ?? host.agents.defaultId ?? host.agents.rows[0]?.id;
     if (!agentId) { say("No agent is available to chat with.", "error"); return; }
-    const body = htmlToPlainText(article.fullHtml ?? article.html) || article.excerpt;
+    const body = htmlToPlainText(article.parts.join("")) || article.excerpt;
     const clipped = body.length > CHAT_TEXT_LIMIT ? `${body.slice(0, CHAT_TEXT_LIMIT)}\n[text cut here]` : body;
     const message = [
       PROMPTS[kind],
@@ -224,7 +224,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       `Source: ${article.feedTitle}`,
       article.url ? `Link: ${article.url}` : "",
       `Published: ${new Date(article.publishedAt).toISOString()}`,
-      article.fullHtml ? "" : "Note: only the feed's excerpt is available; the full page was not loaded.",
+      article.showing === "full" ? "" : "Note: only the feed's excerpt is available; the full page was not loaded.",
       "",
       "<article>",
       clipped,
@@ -574,18 +574,24 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     }
     const tool = (label: string, glyph: Node, onclick: () => void, extra: Record<string, string | boolean | null> = {}) =>
       h("button", { class: "rss-icon", title: label, "aria-label": label, onclick, ...extra }, glyph);
-    const showingFull = article.fullHtml !== null && !state.feedText;
+    const showingFull = article.showing === "full";
     // One button: fetch the full article the first time, then flip between it and the feed's text.
-    const capture = tool(article.fullHtml === null ? "Load the full article" : showingFull ? "Show the feed's summary" : "Show the full article", icon("page"), async () => {
-      if (article.fullHtml !== null) { state.feedText = !state.feedText; renderRead(); return; }
+    const capture = tool(!article.hasFull ? "Load the full article" : showingFull ? "Show the feed's summary" : "Show the full article", icon("page"), async () => {
       capture.disabled = true; capture.classList.add("rss-working");
+      if (article.hasFull) {
+        // Already fetched: ask for the other version of the same story.
+        const other = await guard(async () => unwrap(await api.invoke("article", { id: article.id, body: showingFull ? "feed" : "full" })));
+        if (other && state.selectedId === article.id) { state.article = other; state.feedText = other.showing === "feed"; }
+        renderRead();
+        return;
+      }
       const full = await guard(async () => unwrap(await api.invoke("capture", { id: article.id })));
       if (full && state.selectedId === article.id) { state.article = full; state.feedText = false; patchItem(full.id, { hasFull: full.hasFull }); }
       renderRead();
     }, { class: `rss-icon${showingFull ? " rss-on" : ""}`, "aria-pressed": String(showingFull) });
     capture.disabled = !article.url;
     const body = h("div", { class: "rss-body" });
-    body.append(renderArticleHtml(showingFull ? article.fullHtml ?? article.html : article.html, { images: settings()?.loadImages === true }));
+    body.append(renderArticleHtml(article.parts.join(""), { images: settings()?.loadImages === true }));
     if (!body.textContent?.trim() && !body.querySelector("img")) body.append(h("p", { class: "rss-muted" }, article.excerpt || "This feed did not include any text for the article."));
     const kicker = [article.feedTitle, article.author, new Date(article.publishedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })]
       .filter((part, index, all) => part && all.indexOf(part) === index).join(" · ");
@@ -601,7 +607,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         h("button", { class: "rss-tab", title: "Ask the agent for a summary with supporting passages", onclick: () => void chat("summarize") }, "Summary"),
         h("button", { class: "rss-tab", title: "Ask the agent to look for other reporting on these claims", onclick: () => void chat("sources") }, "Sources"),
         h("button", { class: "rss-primary", title: "Open a conversation about this article", onclick: () => void chat("discuss") }, "Discuss", icon("arrowOut"))),
-      showingFull ? null : h("p", { class: "rss-muted rss-from-feed" }, article.fullHtml === null ? "Showing what the feed provided." : "Showing the feed's summary. The full article is loaded."),
+      showingFull ? null : h("p", { class: "rss-muted rss-from-feed" }, !article.hasFull ? "Showing what the feed provided." : "Showing the feed's summary. The full article is loaded."),
       article.grade && article.grade.level !== "normal" ? h("div", { class: `rss-grade-note rss-grade-${article.grade.level}` }, h("span", { class: "rss-grade-label" }, article.grade.level), article.grade.reason) : null,
       body));
   }

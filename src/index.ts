@@ -2,7 +2,7 @@ import path from "node:path";
 import { defineFeaturePlugin } from "openclaw/plugin-sdk/feature-plugin";
 import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 import { contract } from "./contract.js";
-import { Library } from "./library.js";
+import { articleForWire, Library } from "./library.js";
 import { guardedFetch } from "./net.js";
 import { Store } from "./store.js";
 
@@ -90,7 +90,7 @@ export default defineFeaturePlugin({
         };
       },
       articles: (query) => lib().store.listArticles(query),
-      article: ({ id }) => attempt(() => article(id)),
+      article: ({ id, body }) => attempt(() => articleForWire(article(id), body)),
       export_opml: () => ({ xml: lib().exportOpml() }),
       add_feed: ({ url, folder }) => attempt(() => lib().addFeed(url, folder)),
       update_feed: ({ id, title, folder, move }) => {
@@ -111,7 +111,7 @@ export default defineFeaturePlugin({
         return { changed: count };
       },
       save: ({ id, saved }) => { lib().store.setSaved(id, saved); changed("saved-state"); return { ok: true }; },
-      capture: ({ id }) => attempt(async () => { await lib().capture(id); return article(id); }),
+      capture: ({ id }) => attempt(async () => { await lib().capture(id); return articleForWire(article(id)); }),
       import_opml: ({ xml }) => attempt(() => lib().importOpml(xml)),
       set_settings: (patch) => {
         const before = lib().store.getSettings();

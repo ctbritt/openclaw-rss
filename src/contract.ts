@@ -35,7 +35,10 @@ const ArticleSummary = Type.Object({
 });
 
 const ArticleDetail = Type.Intersect([ArticleSummary, Type.Object({
-  html: Type.String(), fullHtml: Type.Union([Type.String(), Type.Null()]), fullStatus: Type.String(),
+  // The body travels in pieces: OpenClaw refuses any single string over 65,536 characters.
+  parts: Type.Array(Type.String({ maxLength: 60000 }), { maxItems: 8 }),
+  showing: Type.Union([Type.Literal("feed"), Type.Literal("full")]),
+  fullStatus: Type.String(),
 })]);
 
 const Rule = Type.Object({ id: Id, phrase: Type.String(), feedId: NullableId });
@@ -95,7 +98,7 @@ export const contract = defineFeatureContract({
     article: {
       kind: "query",
       description: "Read one article from the RSS library by id, including its text.",
-      input: Type.Object({ id: Id }, closed),
+      input: Type.Object({ id: Id, body: Type.Optional(Type.Union([Type.Literal("feed"), Type.Literal("full")])) }, closed),
       output: orFailure(ArticleDetail),
       tool: { name: "rss_article", label: "Read RSS article" },
     },
