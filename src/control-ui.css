@@ -104,3 +104,14 @@
   .rss-list { border-right: 0; border-bottom: 1px solid var(--rss-line); }
   .rss-read-head, .rss-body, .rss-from-feed { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Sidebar icon. The Control UI only draws its own built-in icons (no RSS mark among them) or an emoji,
+   and the plugin build refuses image references in CSS. So the entry registers the nearest built-in
+   ("radio") as a fallback, and this draws the standard RSS mark (dot plus two arcs) with gradients. */
+a.nav-item:is([href*="plugin=rss&"], [href$="plugin=rss"]) .nav-item__icon > svg { display: none; }
+a.nav-item:is([href*="plugin=rss&"], [href$="plugin=rss"]) .nav-item__icon::before {
+  content: ""; height: 100%; aspect-ratio: 1; max-width: 100%;
+  background:
+    radial-gradient(100% 100% at 17% 83%, currentColor 0 7.5%, transparent 9.5%) 0 0 / 100% 100% no-repeat,
+    radial-gradient(100% 100% at 0% 100%, transparent 39.5%, currentColor 41.5% 49.5%, transparent 51.5% 74.5%, currentColor 76.5% 84.5%, transparent 86.5%) 100% 0 / 83% 83% no-repeat;
+}

@@ -521,7 +521,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
 export default defineControlUiPlugin({
   id: contract.pluginId,
   activate(host) {
-    host.ui.registerNavigation({ id: "reader", label: "RSS", page: { id: "reader" }, icon: "rss" });
+    host.ui.registerNavigation({ id: "reader", label: "RSS", page: { id: "reader" }, icon: "radio" });
     host.ui.registerPage({ id: "reader", label: "RSS", mount: (container, context) => mountReader(container, context.host, context.signal) });
   },
 });
