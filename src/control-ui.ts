@@ -338,8 +338,10 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     const rubric = h("textarea", { rows: "5", placeholder: "Leave empty for the standard rubric, or describe in your own words what counts as important, interesting, normal and spam.", "aria-label": "What matters to you" });
     rubric.value = current.gradingRubric;
     // Filled from OpenClaw's own model list; the saved choice stays selectable even if the list fails to load.
-    const model = h("select", { "aria-label": "Grading model" }, h("option", { value: "" }, "OpenClaw's default model"));
-    if (current.gradingModel) model.append(h("option", { value: current.gradingModel, selected: true }, current.gradingModel));
+    const decisionOption = () => h("option", { value: "decision" }, "OpenClaw's decision model (Clef): sorts fast, gives no written reason");
+    const model = h("select", { "aria-label": "Grading model" }, h("option", { value: "" }, "OpenClaw's default model"), decisionOption());
+    if (current.gradingModel === "decision") model.value = "decision";
+    else if (current.gradingModel) model.append(h("option", { value: current.gradingModel, selected: true }, current.gradingModel));
     void (async () => {
       type Row = { id?: unknown; provider?: unknown; name?: unknown; local?: unknown; available?: unknown };
       const result = await host.request<{ models?: Row[] }>("models.list", { view: "configured", includeDetails: true }).catch(() => null);
@@ -347,8 +349,8 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       if (rows.length === 0) return;
       const chosen = model.value;
       clear(model);
-      model.append(h("option", { value: "" }, "OpenClaw's default model"));
-      const refs = new Set<string>();
+      model.append(h("option", { value: "" }, "OpenClaw's default model"), decisionOption());
+      const refs = new Set<string>(["decision"]);
       for (const [label, local] of [["On this Mac", true], ["Cloud (may cost money)", false]] as const) {
         const group = h("optgroup", { label });
         for (const row of rows.filter((entry) => (entry.local === true) === local)) {

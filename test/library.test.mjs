@@ -386,3 +386,22 @@ test("an article of any size fits OpenClaw's reply limits", async () => {
   assert.deepEqual(articleForWire({ ...base, html: "<p>feed</p>", fullHtml: medium }, "feed").parts, ["<p>feed</p>"]);
   assert.equal(articleForWire({ ...base, hasFull: false, html: "<p>feed</p>", fullHtml: null }).showing, "feed");
 });
+
+test("grading with a decision model: one story per call, probability as the reason, unknown levels rejected", async () => {
+  const store = new Store(":memory:");
+  const feedId = store.addFeed({ url: "https://example.com/feed", title: "Feed", folder: "" });
+  store.addArticles(feedId, [1, 2, 3].map((n) => ({ guid: String(n), url: null, title: `Story ${n}`, author: "", publishedAt: Date.now() - n * 1000, html: "", text: "body" })));
+  store.setSettings({ gradingModel: "decision" });
+  const seen = [];
+  const library = new Library(store, async () => { throw new Error("no network"); }, () => {}, () => {}, async () => { throw new Error("the chat model must not be used"); },
+    async ({ story, criteria }) => { seen.push(story.title); assert.deepEqual(Object.keys(criteria).sort(), ["important", "interesting", "normal", "spam"]); return { level: story.title === "Story 1" ? "important" : "normal", probability: 0.87 }; });
+  assert.deepEqual(await library.gradePending({ manual: true }), { graded: 3, remaining: 0 });
+  assert.equal(seen.length, 3);
+  const top = store.listArticles({ grades: ["important"] }).items;
+  assert.equal(top.length, 1);
+  assert.match(top[0].grade.reason, /87% sure/);
+  store.clearGrades();
+  const odd = new Library(store, async () => { throw new Error("no network"); }, () => {}, () => {}, null, async () => ({ level: "urgent", probability: null }));
+  await assert.rejects(() => odd.gradePending({ manual: true }), /does not know/);
+  store.close();
+});

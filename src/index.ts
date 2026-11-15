@@ -24,7 +24,8 @@ export default defineFeaturePlugin({
         (reason) => changed(reason),
         (text) => api.logger.info(`[rss] ${text}`),
         async ({ system, input, maxTokens }) => {
-          const model = lib().store.getSettings().gradingModel;
+          const chosen = lib().store.getSettings().gradingModel;
+          const model = chosen === "decision" ? "" : chosen;
           const result = await api.runtime.llm.complete({
             ...(model ? { model } : {}),
             systemPrompt: system,
@@ -35,6 +36,17 @@ export default defineFeaturePlugin({
           });
           if (result.stopReason === "error" || !result.text?.trim()) throw new Error("The grading model returned no usable answer.");
           return result.text;
+        },
+        async ({ story, instructions, criteria }) => {
+          const outcome = await api.runtime.decisions.evaluate(
+            { state: story, questions: { grade: { type: "choice", instructions, criteria } } },
+            { purpose: "rss.grading", rubricVersion: "1", timeoutMs: 20_000, priority: "optional", signal: AbortSignal.timeout(25_000) },
+          );
+          if (outcome.status !== "ok") throw new Error(`The decision model is unavailable${"reason" in outcome && outcome.reason ? `: ${String(outcome.reason)}` : "."}`);
+          const answer = outcome.result.answers.grade;
+          if (answer?.type !== "choice") throw new Error("The decision model did not answer the question.");
+          const probability = answer.probabilities?.[answer.choice];
+          return { level: answer.choice, probability: typeof probability === "number" ? probability : null };
         },
       );
       return library;
