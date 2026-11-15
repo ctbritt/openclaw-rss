@@ -334,7 +334,31 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     const grading = check(current.aiGrading);
     const rubric = h("textarea", { rows: "5", placeholder: "Leave empty for the standard rubric, or describe in your own words what counts as important, interesting, normal and spam.", "aria-label": "What matters to you" });
     rubric.value = current.gradingRubric;
-    const model = h("input", { type: "text", placeholder: "OpenClaw's default", value: current.gradingModel, "aria-label": "Grading model", spellcheck: "false" });
+    // Filled from OpenClaw's own model list; the saved choice stays selectable even if the list fails to load.
+    const model = h("select", { "aria-label": "Grading model" }, h("option", { value: "" }, "OpenClaw's default model"));
+    if (current.gradingModel) model.append(h("option", { value: current.gradingModel, selected: true }, current.gradingModel));
+    void (async () => {
+      type Row = { id?: unknown; provider?: unknown; name?: unknown; local?: unknown; available?: unknown };
+      const result = await host.request<{ models?: Row[] }>("models.list", { view: "configured", includeDetails: true }).catch(() => null);
+      const rows = (result?.models ?? []).filter((row) => typeof row.id === "string" && typeof row.provider === "string" && row.available !== false);
+      if (rows.length === 0) return;
+      const chosen = model.value;
+      clear(model);
+      model.append(h("option", { value: "" }, "OpenClaw's default model"));
+      const refs = new Set<string>();
+      for (const [label, local] of [["On this Mac", true], ["Cloud (may cost money)", false]] as const) {
+        const group = h("optgroup", { label });
+        for (const row of rows.filter((entry) => (entry.local === true) === local)) {
+          const ref = `${String(row.provider)}/${String(row.id)}`;
+          if (refs.has(ref)) continue;
+          refs.add(ref);
+          group.append(h("option", { value: ref }, typeof row.name === "string" && row.name ? row.name : ref));
+        }
+        if (group.childElementCount > 0) model.append(group);
+      }
+      if (chosen && !refs.has(chosen)) model.append(h("option", { value: chosen }, `${chosen} (not in OpenClaw's list)`));
+      model.value = chosen;
+    })();
     const status = state.overview?.grading;
     const gradeStatus = h("p", { class: status?.lastError ? "rss-error" : "rss-muted", "aria-live": "polite" },
       status?.lastError ? `Last grading run failed: ${status.lastError}` : status?.running ? `Grading now, ${status.remaining.toLocaleString()} to go.` : status?.remaining ? `${status.remaining.toLocaleString()} articles not graded yet.` : "Every article is graded.");
@@ -377,7 +401,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       h("label", { class: "rss-check" }, grading, "Grade new articles as important, interesting, normal or spam"),
       h("label", {}, "What matters to you", rubric),
       h("p", { class: "rss-muted" }, "Changing this regrades the whole library."),
-      h("label", {}, "Model (provider/model; needs the plugin's model override allowed in OpenClaw config)", model),
+      h("label", {}, "Model that does the grading", model),
       h("div", { class: "rss-row" }, h("button", { type: "button", onclick: gradeNow(false) }, "Grade now"), h("button", { type: "button", onclick: gradeNow(true) }, "Regrade everything")),
       gradeStatus,
       h("h3", {}, "Subscriptions"),
@@ -387,7 +411,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         await guard(() => api.invoke("set_settings", {
           autoRefresh: auto.checked, refreshMinutes: Math.min(1440, Math.max(1, Math.round(Number(minutes.value) || 30))),
           markReadOnOpen: markRead.checked, loadImages: images.checked, backgroundCapture: capture.checked,
-          aiGrading: grading.checked, gradingRubric: rubric.value.trim(), gradingModel: model.value.trim(),
+          aiGrading: grading.checked, gradingRubric: rubric.value.trim(), gradingModel: model.value,
         }));
         box.close(); await loadOverview(); renderRead();
       } }, "Save")]);
