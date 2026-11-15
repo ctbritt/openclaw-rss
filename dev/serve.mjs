@@ -28,8 +28,12 @@ const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 ${[styles].flat().map((href) => `<link rel="stylesheet" href="/${href}">`).join("")}
 <style>
-  :root { --text:#1c1d21; --bg:#ffffff; --border:#dcdde2; --accent:#3b6ef5; --accent-foreground:#fff; --danger:#c93c3c; color-scheme: light; }
-  @media (prefers-color-scheme: dark) { :root { --text:#e7e8ec; --bg:#16171b; --border:#2e3038; --accent:#6f95ff; color-scheme: dark; } }
+  /* A copy of the Control UI's default theme colours, so the preview looks like the real page. */
+  :root { --bg:#faf9f7; --bg-elevated:#fff; --card:#fff; --popover:#fff; --bg-hover:#efebe4; --text:#403c35; --text-strong:#211e1a; --muted:#6e6960;
+    --border:#e8e4dc; --input:#e8e4dc; --accent:#bd4531; --accent-hover:#a83c29; --accent-subtle:#bd453114; --accent-foreground:#fff; --ring:#bd4531; --danger:#b91c1c;
+    --radius-sm:6px; --radius-md:8px; --radius-lg:12px; --shadow-sm:0 1px 2px #3c2a180d; --shadow-lg:0 12px 28px #3c2a1817; color-scheme: light; }
+  :root.dark { --bg:#111318; --bg-elevated:#22252b; --card:#22252b; --popover:#22252b; --bg-hover:#2a2d34; --text:#d7d9de; --text-strong:#f4f5f7; --muted:#8e8e97;
+    --border:#2a2d33; --input:#2a2d33; --accent:#ff5c5c; --accent-hover:#ff7070; --accent-subtle:#ff5c5c1f; --danger:#ef4444; color-scheme: dark; }
   html, body { height:100%; margin:0; font: 14px/1.45 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--text); }
   #app { height:100vh; }
 </style></head><body><div id="app"></div>
@@ -49,13 +53,14 @@ ${[styles].flat().map((href) => `<link rel="stylesheet" href="/${href}">`).join(
     sessions: { create: async () => "preview-session", open() {} },
     ui: { registerNavigation: () => () => {}, registerPage: (definition) => { window.page = definition; return () => {}; } },
   };
+  if (new URLSearchParams(location.search).has("dark")) document.documentElement.classList.add("dark");
   plugin.activate(host);
   window.view = window.page.mount(document.getElementById("app"), { host, signal: controller.signal, props: {}, presented: true });
   // ?open=N clicks the Nth article once the list has loaded, for screenshots.
   const pick = Number(new URLSearchParams(location.search).get("open"));
   if (pick) {
     const timer = setInterval(() => {
-      const rows = document.querySelectorAll(".rss-article");
+      const rows = document.querySelectorAll(".rss-card");
       if (rows.length >= pick) { clearInterval(timer); rows[pick - 1].click(); }
     }, 100);
   }

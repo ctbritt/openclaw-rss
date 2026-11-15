@@ -23,7 +23,7 @@ const Feed = Type.Object({
 
 const ArticleSummary = Type.Object({
   id: Id, feedId: NullableId, feedTitle: Type.String(), title: Type.String(), author: Type.String(),
-  url: Type.Union([Type.String(), Type.Null()]), publishedAt: Type.Integer(), excerpt: Type.String(),
+  url: Type.Union([Type.String(), Type.Null()]), publishedAt: Type.Integer(), excerpt: Type.String(), image: Type.Union([Type.String(), Type.Null()]),
   read: Type.Boolean(), saved: Type.Boolean(), hasFull: Type.Boolean(),
 });
 

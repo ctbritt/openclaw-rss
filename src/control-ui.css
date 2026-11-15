@@ -1,92 +1,132 @@
+/* Colours, radii and shadows come from the Control UI theme; the fallbacks only matter in the local preview. */
 .rss-root {
   --rss-line: var(--border, rgba(128, 128, 128, 0.3));
-  --rss-dim: color-mix(in srgb, var(--text, currentColor) 62%, transparent);
-  --rss-faint: color-mix(in srgb, var(--text, currentColor) 7%, transparent);
-  --rss-tint: color-mix(in srgb, var(--accent, #4a7dff) 16%, transparent);
-  position: relative; display: grid; grid-template-columns: minmax(200px, 250px) minmax(260px, 360px) minmax(0, 1fr);
-  height: 100%; min-height: 0; color: var(--text); background: var(--bg); font: inherit; overflow: hidden;
+  --rss-dim: var(--muted, color-mix(in srgb, currentColor 62%, transparent));
+  --rss-strong: var(--text-strong, var(--text, currentColor));
+  --rss-card: var(--card, var(--bg-elevated, var(--bg)));
+  --rss-hover: var(--bg-hover, color-mix(in srgb, currentColor 7%, transparent));
+  --rss-faint: color-mix(in srgb, var(--text, currentColor) 6%, transparent);
+  --rss-tint: var(--accent-subtle, color-mix(in srgb, var(--accent, #4a7dff) 12%, transparent));
+  --rss-r: var(--radius-md, 8px);
+  --rss-r-lg: var(--radius-lg, 12px);
+  position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0;
+  color: var(--text); background: var(--bg); font: inherit; overflow: hidden;
 }
 .rss-root * { box-sizing: border-box; }
 .rss-root button, .rss-root input, .rss-root select { font: inherit; color: inherit; }
-.rss-root button { cursor: pointer; background: transparent; border: 1px solid var(--rss-line); border-radius: 6px; padding: 4px 10px; }
-.rss-root button:hover:not(:disabled) { background: var(--rss-faint); }
-.rss-root button:disabled { opacity: 0.5; cursor: default; }
-.rss-root button:focus-visible, .rss-root input:focus-visible, .rss-root a:focus-visible { outline: 2px solid var(--accent, #4a7dff); outline-offset: 1px; }
+.rss-root button { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--rss-card); border: 1px solid var(--rss-line); border-radius: var(--rss-r); padding: 5px 12px; font-size: 0.9em; }
+.rss-root button:hover:not(:disabled) { background: var(--rss-hover); }
+.rss-root button:disabled { opacity: 0.55; cursor: default; }
+.rss-root :is(button, input, select, a):focus-visible { outline: 2px solid var(--ring, var(--accent, #4a7dff)); outline-offset: 1px; }
 .rss-root input[type="text"], .rss-root input[type="url"], .rss-root input[type="search"], .rss-root input[type="number"], .rss-root select {
-  background: var(--bg); border: 1px solid var(--rss-line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
-.rss-root .rss-primary { background: var(--accent, #4a7dff); color: var(--accent-foreground, #fff); border-color: transparent; }
-.rss-root .rss-primary:hover:not(:disabled) { background: var(--accent, #4a7dff); filter: brightness(1.08); }
+  background: var(--rss-card); border: 1px solid var(--input, var(--rss-line)); border-radius: var(--rss-r); padding: 6px 10px; min-width: 0; }
+.rss-root input::placeholder { color: var(--rss-dim); }
+.rss-root .rss-primary { background: var(--accent, #4a7dff); color: var(--accent-foreground, #fff); border-color: transparent; font-weight: 600; }
+.rss-root .rss-primary:hover:not(:disabled) { background: var(--accent-hover, var(--accent, #4a7dff)); }
 .rss-root .rss-danger { color: var(--danger, #d64545); margin-right: auto; }
-.rss-root .rss-icon { border: 0; padding: 2px 7px; font-size: 1.05em; line-height: 1.3; }
-.rss-root .rss-on { background: var(--rss-tint); }
-.rss-root .rss-link { border: 0; padding: 0; color: var(--accent, #4a7dff); text-decoration: underline; }
+.rss-root .rss-icon { background: transparent; border: 0; padding: 5px; color: var(--rss-dim); border-radius: var(--radius-sm, 6px); display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.rss-root .rss-icon:hover:not(:disabled) { color: var(--text); background: var(--rss-hover); }
+.rss-root .rss-on { color: var(--accent, #4a7dff); }
+.rss-root .rss-link { background: transparent; border: 0; padding: 0; color: var(--link, var(--accent, #4a7dff)); text-decoration: underline; }
+.rss-svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.rss-svg-filled { fill: currentColor; }
 .rss-muted { color: var(--rss-dim); font-size: 0.9em; }
 .rss-error { color: var(--danger, #d64545); font-size: 0.9em; }
 .rss-pad { padding: 12px 14px; }
 .rss-break { overflow-wrap: anywhere; }
-
-.rss-sidebar, .rss-list, .rss-read { min-height: 0; overflow-y: auto; }
-.rss-sidebar, .rss-list { border-right: 1px solid var(--rss-line); }
-.rss-list { display: flex; flex-direction: column; overflow: hidden; }
-.rss-bar { display: flex; align-items: center; gap: 4px; padding: 10px 12px; position: sticky; top: 0; background: var(--bg); z-index: 1; border-bottom: 1px solid var(--rss-line); }
-.rss-bar h1 { font-size: 1.05em; margin: 0 auto 0 0; }
-.rss-sidebar h2 { font-size: 0.72em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rss-dim); margin: 14px 12px 4px; }
-.rss-item { display: flex; align-items: center; margin: 1px 6px; border-radius: 6px; }
-.rss-item.rss-active { background: var(--rss-tint); }
-.rss-root .rss-item-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; text-align: left; padding: 5px 8px; }
-.rss-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rss-nested .rss-item-main { padding-left: 22px; }
-.rss-folder .rss-item-label { font-weight: 600; }
-.rss-count { font-size: 0.8em; color: var(--rss-dim); font-variant-numeric: tabular-nums; }
-.rss-warn { color: var(--danger, #d64545); font-weight: 700; }
-.rss-empty { display: grid; gap: 8px; padding: 16px 12px; justify-items: start; }
-.rss-spin { animation: rss-spin 1s linear infinite; }
+.rss-gap { flex: 1; }
+.rss-spin { display: inline-flex; animation: rss-spin 1s linear infinite; }
+.rss-working { animation: rss-pulse 1s ease-in-out infinite; }
 @keyframes rss-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .rss-spin { animation: none; opacity: 0.5; } }
+@keyframes rss-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .rss-spin, .rss-working { animation: none; opacity: 0.5; } }
 
-.rss-search { flex: 1; }
+/* Top bar */
+.rss-top { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--rss-line); flex: none; }
+.rss-top h1 { margin: 0; font-size: 1.05em; font-weight: 700; color: var(--rss-strong); }
+.rss-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(190px, 230px) minmax(300px, 0.85fr) minmax(0, 1.15fr); }
+.rss-sidebar, .rss-read { min-height: 0; overflow-y: auto; }
+.rss-sidebar, .rss-list { border-right: 1px solid var(--rss-line); }
+
+/* Subscriptions */
+.rss-sidebar { padding: 12px 10px 24px; }
+.rss-views { display: grid; gap: 6px; }
+.rss-root .rss-view { justify-content: space-between; width: 100%; padding: 9px 12px; font-size: 0.92em; font-weight: 600; text-align: left; }
+.rss-root .rss-view.rss-active { background: var(--rss-tint); border-color: color-mix(in srgb, var(--accent, #4a7dff) 45%, transparent); color: var(--rss-strong); }
+.rss-sidebar h2 { display: flex; align-items: center; justify-content: space-between; font-size: 0.68em; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rss-dim); margin: 18px 6px 4px; }
+.rss-count { font-size: 0.82em; font-weight: 500; color: var(--rss-dim); font-variant-numeric: tabular-nums; flex: none; }
+.rss-folder, .rss-feed-row { display: flex; align-items: center; border-radius: var(--rss-r); }
+.rss-folder { margin-top: 4px; }
+.rss-folder.rss-active, .rss-feed-row.rss-active { background: var(--rss-tint); }
+.rss-root .rss-folder-main, .rss-root .rss-feed { flex: 1; min-width: 0; justify-content: space-between; gap: 8px; background: transparent; border: 0; text-align: left; }
+.rss-root .rss-folder-main { padding: 6px 8px 6px 2px; font-weight: 700; color: var(--rss-strong); }
+.rss-folder-name, .rss-feed-title, .rss-feed-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rss-root .rss-feed { padding: 6px 8px; width: 100%; }
+.rss-feed-text { display: grid; min-width: 0; gap: 1px; }
+.rss-feed-title { font-weight: 500; }
+.rss-feed-sub { font-size: 0.8em; color: var(--rss-dim); }
+.rss-feed-failed { color: var(--danger, #d64545); }
+.rss-empty { display: grid; gap: 8px; padding: 16px 4px; justify-items: start; }
+
+/* Article list */
+.rss-list { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.rss-bar { display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--rss-line); flex: none; }
+.rss-search { flex: 1; font-size: 0.9em; }
 .rss-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px; }
 .rss-chips:not(:empty) { padding: 8px 12px; border-bottom: 1px solid var(--rss-line); }
-.rss-root .rss-chip { border-radius: 999px; font-size: 0.85em; padding: 2px 10px; background: var(--rss-faint); }
-.rss-items { flex: 1; min-height: 0; overflow-y: auto; }
-.rss-root .rss-article { display: grid; gap: 3px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rss-line); border-radius: 0; padding: 10px 14px; }
-.rss-root .rss-article.rss-active { background: var(--rss-tint); }
-.rss-article-title { font-weight: 600; line-height: 1.3; }
-.rss-article-meta { font-size: 0.8em; color: var(--rss-dim); }
-.rss-article-excerpt { font-size: 0.88em; color: var(--rss-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.rss-read-item .rss-article-title { font-weight: 400; }
-.rss-read-item { opacity: 0.62; }
-.rss-root .rss-more { display: block; margin: 12px auto; }
+.rss-root .rss-chip { border-radius: 999px; font-size: 0.82em; padding: 2px 10px; background: var(--rss-faint); }
+.rss-items { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 8px 24px; }
+.rss-root .rss-card { display: grid; gap: 6px; width: 100%; text-align: left; justify-content: stretch; font-size: 1em; background: transparent; border: 0; border-bottom: 1px solid var(--rss-line); border-radius: 0; padding: 12px 10px 14px; outline-offset: -2px; }
+.rss-root .rss-card:hover { background: var(--rss-faint); }
+.rss-root .rss-card.rss-active { background: var(--rss-card); border-radius: var(--rss-r-lg); border-bottom-color: transparent; outline: 2px solid var(--accent, #4a7dff); box-shadow: var(--shadow-sm, none); }
+.rss-card-meta { display: flex; align-items: center; gap: 6px; font-size: 0.76em; color: var(--rss-dim); min-width: 0; }
+.rss-card-feed { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rss-card-date { margin-left: auto; flex: none; }
+.rss-card-saved { display: inline-flex; color: var(--accent, #4a7dff); }
+.rss-card-saved .rss-svg { width: 11px; height: 11px; }
+.rss-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent, #4a7dff); flex: none; }
+.rss-card-main { display: flex; align-items: flex-start; gap: 12px; }
+.rss-card-text { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.rss-card-title { font-weight: 700; line-height: 1.3; color: var(--rss-strong); }
+.rss-card-excerpt { font-size: 0.86em; line-height: 1.45; color: var(--rss-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rss-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: var(--rss-r); flex: none; background: var(--rss-faint); }
+.rss-read-item .rss-card-title { font-weight: 500; color: var(--text); }
+.rss-read-item :is(.rss-card-title, .rss-card-excerpt, .rss-thumb) { opacity: 0.68; }
+.rss-root .rss-more { display: flex; margin: 14px auto; }
 
-.rss-read { padding: 0 0 48px; }
+/* Reading pane */
 .rss-read:focus { outline: none; }
-.rss-read-head { padding: 22px 32px 12px; border-bottom: 1px solid var(--rss-line); position: sticky; top: 0; background: var(--bg); z-index: 1; }
-.rss-read-head h1 { font-size: 1.45em; line-height: 1.25; margin: 0 0 6px; max-width: 46rem; }
-.rss-read-head h1 a { color: inherit; text-decoration: none; }
-.rss-read-head h1 a:hover { text-decoration: underline; }
-.rss-read-head p { margin: 0 0 12px; }
-.rss-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.rss-gap { flex: 1; }
-.rss-from-feed { padding: 10px 32px 0; margin: 0; }
-.rss-body { padding: 14px 32px; max-width: 50rem; line-height: 1.65; font-size: 1.03em; overflow-wrap: break-word; }
-.rss-body img { max-width: 100%; height: auto; border-radius: 6px; }
-.rss-body a { color: var(--accent, #4a7dff); }
-.rss-body pre { overflow-x: auto; padding: 12px; background: var(--rss-faint); border-radius: 6px; }
+.rss-column { max-width: 46rem; margin: 0 auto; padding: 36px 40px 64px; }
+.rss-kicker { margin: 0 0 8px; font-size: 0.7em; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rss-dim); }
+.rss-column > h1 { font-size: 1.7em; line-height: 1.22; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 22px; color: var(--rss-strong); text-wrap: balance; }
+.rss-tools { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--rss-line); }
+.rss-tools .rss-svg { width: 16px; height: 16px; }
+.rss-root .rss-tab { background: transparent; border: 0; border-radius: var(--radius-sm, 6px); color: var(--rss-dim); padding: 5px 10px; }
+.rss-root .rss-tab:hover { color: var(--text); }
+.rss-tools .rss-primary { margin-left: 6px; }
+.rss-from-feed { margin: 14px 0 0; }
+.rss-body { padding-top: 18px; line-height: 1.7; font-size: 1.03em; overflow-wrap: break-word; }
+.rss-body > :first-child { margin-top: 0; }
+.rss-body img { max-width: 100%; height: auto; border-radius: var(--rss-r-lg); }
+.rss-body a { color: var(--link, var(--accent, #4a7dff)); }
+.rss-body :is(h1, h2, h3, h4) { color: var(--rss-strong); line-height: 1.3; }
+.rss-body pre { overflow-x: auto; padding: 12px; background: var(--rss-faint); border-radius: var(--rss-r); }
 .rss-body blockquote { margin: 1em 0; padding-left: 14px; border-left: 3px solid var(--rss-line); color: var(--rss-dim); }
 .rss-body table { border-collapse: collapse; display: block; overflow-x: auto; }
 .rss-body th, .rss-body td { border: 1px solid var(--rss-line); padding: 4px 8px; }
 .rss-body figure { margin: 1em 0; }
 .rss-body figcaption { font-size: 0.85em; color: var(--rss-dim); }
 .rss-placeholder { display: grid; place-content: center; height: 100%; min-height: 240px; text-align: center; gap: 4px; padding: 24px; }
+.rss-placeholder p { margin: 0; }
 
 .rss-notice { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; max-width: min(90%, 560px);
-  padding: 8px 8px 8px 14px; border-radius: 8px; background: var(--bg); border: 1px solid var(--rss-line); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); z-index: 5; }
+  padding: 8px 8px 8px 14px; border-radius: var(--rss-r); background: var(--popover, var(--rss-card)); border: 1px solid var(--rss-line); box-shadow: var(--shadow-lg, 0 6px 24px rgba(0, 0, 0, 0.25)); z-index: 5; }
 .rss-notice[hidden] { display: none; }
 .rss-notice-error { border-color: var(--danger, #d64545); }
 
-.rss-dialog { color: var(--text); background: var(--bg); border: 1px solid var(--rss-line); border-radius: 10px; padding: 20px; width: min(92vw, 480px); max-height: 86vh; overflow-y: auto; }
+.rss-dialog { color: var(--text); background: var(--popover, var(--bg)); border: 1px solid var(--rss-line); border-radius: var(--rss-r-lg); padding: 20px; width: min(92vw, 480px); max-height: 86vh; overflow-y: auto; box-shadow: var(--shadow-lg, none); }
 .rss-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
-.rss-dialog h2 { margin: 0 0 14px; font-size: 1.15em; }
+.rss-dialog h2 { margin: 0 0 14px; font-size: 1.15em; color: var(--rss-strong); }
 .rss-dialog h3 { margin: 10px 0 0; font-size: 0.95em; }
 .rss-form { display: grid; gap: 10px; }
 .rss-form label { display: grid; gap: 4px; font-size: 0.9em; }
@@ -99,10 +139,12 @@
 .rss-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 @media (max-width: 900px) {
-  .rss-root { grid-template-columns: 1fr; grid-template-rows: auto minmax(180px, 38vh) 1fr; overflow-y: auto; }
-  .rss-sidebar { max-height: 30vh; border-right: 0; border-bottom: 1px solid var(--rss-line); }
+  .rss-top { flex-wrap: wrap; padding: 8px 12px; }
+  .rss-panes { grid-template-columns: 1fr; grid-template-rows: auto minmax(200px, 40vh) auto; overflow-y: auto; }
+  .rss-sidebar { max-height: 28vh; border-right: 0; border-bottom: 1px solid var(--rss-line); }
   .rss-list { border-right: 0; border-bottom: 1px solid var(--rss-line); }
-  .rss-read-head, .rss-body, .rss-from-feed { padding-left: 16px; padding-right: 16px; }
+  .rss-read { overflow: visible; }
+  .rss-column { padding: 22px 16px 48px; }
 }
 
 /* Sidebar icon. The Control UI only draws its own built-in icons (no RSS mark among them) or an emoji,

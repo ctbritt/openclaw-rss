@@ -10,6 +10,8 @@ export type ParsedItem = {
   publishedAt: number | null;
   /** Raw publisher HTML; sanitize before storing or showing. */
   html: string;
+  /** Lead image the feed declared for the entry (media thumbnail or image enclosure), if any. */
+  image: string | null;
 };
 
 export type ParsedFeed = {
@@ -100,6 +102,32 @@ function firstNonEmpty(...values: string[]): string {
   return values.find((value) => value.length > 0) ?? "";
 }
 
+/** The picture a feed attaches to an entry: Media RSS thumbnail or content, or an image enclosure. */
+function leadImage(entry: Node, base?: string): string | null {
+  const many = (value: unknown): unknown[] => (Array.isArray(value) ? value : value === undefined ? [] : [value]);
+  const group = many(entry["media:group"])[0];
+  const scopes = [entry, ...(isNode(group) ? [group] : [])];
+  const candidates: string[] = [];
+  for (const scope of scopes) for (const node of many(scope["media:thumbnail"])) candidates.push(attr(node, "url"));
+  for (const scope of scopes) {
+    for (const node of many(scope["media:content"])) {
+      const type = attr(node, "type").toLowerCase();
+      const medium = attr(node, "medium").toLowerCase();
+      const url = attr(node, "url");
+      if (medium === "image" || type.startsWith("image/") || (!type && !medium && /\.(?:jpe?g|png|webp|gif|avif)(?:[?#]|$)/iu.test(url))) candidates.push(url);
+    }
+  }
+  for (const node of many(entry.enclosure)) if (attr(node, "type").toLowerCase().startsWith("image/")) candidates.push(attr(node, "url"));
+  for (const node of many(entry.link)) {
+    if (attr(node, "rel") === "enclosure" && attr(node, "type").toLowerCase().startsWith("image/")) candidates.push(attr(node, "href"));
+  }
+  for (const candidate of candidates) {
+    const url = candidate ? safeHttpUrl(candidate, base) : null;
+    if (url) return url;
+  }
+  return null;
+}
+
 function stableGuid(explicit: string, url: string | null, title: string, publishedAt: number | null): string {
   if (explicit) return explicit.slice(0, 500);
   if (url) return url.slice(0, 500);
@@ -122,6 +150,7 @@ function rssItem(item: Node, base?: string): ParsedItem {
     author: plain(item["dc:creator"]) || plain(item.author),
     publishedAt,
     html: encoded.length >= description.length ? encoded : description,
+    image: leadImage(item, base),
   };
 }
 
@@ -139,6 +168,7 @@ function atomEntry(entry: Node, base?: string): ParsedItem {
     author,
     publishedAt,
     html: content || summary,
+    image: leadImage(entry, base),
   };
 }
 

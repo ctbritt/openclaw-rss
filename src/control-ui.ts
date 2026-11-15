@@ -1,7 +1,7 @@
 import { defineControlUiPlugin, type ControlUiHost } from "openclaw/plugin-sdk/control-ui";
 import { createFeatureClient, type FeatureOutput } from "openclaw/plugin-sdk/feature-contract";
 import { contract } from "./contract.js";
-import { clear, h, htmlToPlainText, relativeTime, renderArticleHtml } from "./ui/dom.js";
+import { clear, h, htmlToPlainText, icon, relativeTime, renderArticleHtml } from "./ui/dom.js";
 import "./control-ui.css";
 
 type Overview = FeatureOutput<typeof contract, "overview">;
@@ -56,7 +56,8 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   const listPane = h("section", { class: "rss-list", "aria-label": "Articles" });
   const readPane = h("article", { class: "rss-read", "aria-label": "Reading pane", tabindex: "-1" });
   const notice = h("div", { class: "rss-notice", role: "status", "aria-live": "polite", hidden: true });
-  const root = h("div", { class: "rss-root" }, sidebar, listPane, readPane, notice);
+  const top = h("header", { class: "rss-top" });
+  const root = h("div", { class: "rss-root" }, top, h("div", { class: "rss-panes" }, sidebar, listPane, readPane), notice);
   container.append(root);
 
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -64,7 +65,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     clearTimeout(noticeTimer);
     clear(notice);
     notice.className = `rss-notice rss-notice-${kind}`;
-    notice.append(h("span", {}, text), h("button", { class: "rss-icon", "aria-label": "Dismiss", onclick: () => { notice.hidden = true; } }, "×"));
+    notice.append(h("span", {}, text), h("button", { class: "rss-icon", "aria-label": "Dismiss", onclick: () => { notice.hidden = true; } }, icon("close")));
     notice.hidden = false;
     noticeTimer = setTimeout(() => { notice.hidden = true; }, NOTICE_MS);
   };
@@ -162,9 +163,9 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
 
   const refresh = async (feedId?: number) => {
     if (state.busy) return;
-    state.busy = true; renderSidebar();
+    state.busy = true; renderTop();
     const report = await guard(() => api.invoke("refresh", feedId === undefined ? {} : { feedId }));
-    state.busy = false;
+    state.busy = false; renderTop();
     if (report) {
       const failed = report.errors.length ? `, ${report.errors.length} feed${report.errors.length === 1 ? "" : "s"} failed` : "";
       say(`${report.added} new article${report.added === 1 ? "" : "s"}${failed}.`, report.errors.length ? "error" : "info");
@@ -359,60 +360,82 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   };
 
   // ---- rendering --------------------------------------------------------------------------
-  const count = (value: number) => (value > 0 ? h("span", { class: "rss-count" }, String(value)) : null);
-  const scopeIs = (scope: Scope, view?: View) =>
-    JSON.stringify(scope) === JSON.stringify(state.scope) && (view === undefined ? state.view !== "saved" || scope.kind !== "library" : state.view === view);
+  const collapsedKey = "openclaw-rss:collapsed-folders";
+  const collapsed = new Set<string>();
+  try { for (const name of JSON.parse(localStorage.getItem(collapsedKey) ?? "[]") as unknown[]) if (typeof name === "string") collapsed.add(name); } catch { /* start expanded */ }
+  const toggleFolder = (folder: string) => {
+    if (collapsed.has(folder)) collapsed.delete(folder); else collapsed.add(folder);
+    try { localStorage.setItem(collapsedKey, JSON.stringify([...collapsed])); } catch { /* not remembered */ }
+    renderSidebar();
+  };
+  const count = (value: number) => (value > 0 ? h("span", { class: "rss-count" }, value.toLocaleString()) : null);
+  const scopeIs = (scope: Scope) => JSON.stringify(scope) === JSON.stringify(state.scope);
+  const ago = (ms: number) => { const text = relativeTime(ms); return text === "now" ? "just now" : /^\d+[mhd]$/u.test(text) ? `${text} ago` : text; };
+
+  function renderTop() {
+    clear(top);
+    top.append(h("h1", {}, "RSS Reader"), h("span", { class: "rss-gap" }),
+      h("button", { title: "Refresh all feeds (r)", disabled: state.busy, onclick: () => void refresh() }, h("span", { class: state.busy ? "rss-spin" : "" }, icon("refresh")), state.busy ? "Refreshing…" : "Refresh"),
+      h("button", { title: "Filters, mute rules and saved searches", onclick: filtersDialog }, "Filters"),
+      h("button", { onclick: settingsDialog }, "Settings"),
+      h("button", { class: "rss-primary", onclick: addFeedDialog }, icon("plus"), "Subscribe"));
+  }
 
   function renderSidebar() {
     const overview = state.overview;
     clear(sidebar);
-    sidebar.append(h("header", { class: "rss-bar" }, h("h1", {}, "RSS"),
-      h("button", { class: "rss-icon", title: "Add a feed", "aria-label": "Add a feed", onclick: addFeedDialog }, "+"),
-      h("button", { class: `rss-icon${state.busy ? " rss-spin" : ""}`, title: "Refresh all feeds (r)", "aria-label": "Refresh all feeds", onclick: () => void refresh() }, "↻"),
-      h("button", { class: `rss-icon${state.editing ? " rss-on" : ""}`, title: "Edit subscriptions", "aria-label": "Edit subscriptions", "aria-pressed": String(state.editing), onclick: () => { state.editing = !state.editing; renderSidebar(); } }, "✎"),
-      h("button", { class: "rss-icon", title: "Settings", "aria-label": "Settings", onclick: settingsDialog }, "⚙")));
     if (!overview) { sidebar.append(h("p", { class: "rss-muted rss-pad" }, "Loading…")); return; }
-    const row = (label: string, active: boolean, onclick: () => void, badge: Node | null, extra: Node[] = [], cls = "") =>
-      h("div", { class: `rss-item ${cls}${active ? " rss-active" : ""}` }, h("button", { class: "rss-item-main", onclick, "aria-current": active ? "true" : null }, h("span", { class: "rss-item-label" }, label), badge), ...extra);
-    sidebar.append(
-      row("All articles", state.scope.kind === "library" && state.view === "all", () => select({ kind: "library" }, "all"), count(overview.totals.unread)),
-      row("Unread", state.scope.kind === "library" && state.view === "unread", () => select({ kind: "library" }, "unread"), null),
-      row("Saved", state.scope.kind === "library" && state.view === "saved", () => select({ kind: "library" }, "saved"), count(overview.totals.saved)),
-    );
+    const view = (label: string, target: View, badge: Node | null) => {
+      const active = state.scope.kind === "library" && state.view === target;
+      return h("button", { class: `rss-view${active ? " rss-active" : ""}`, "aria-current": active ? "true" : null, onclick: () => select({ kind: "library" }, target) }, h("span", {}, label), badge);
+    };
+    sidebar.append(h("div", { class: "rss-views" },
+      view("All articles", "all", null), view("Unread", "unread", count(overview.totals.unread)), view("Saved", "saved", count(overview.totals.saved))));
     if (overview.searches.length) {
       sidebar.append(h("h2", {}, "Searches"));
       for (const search of overview.searches) {
-        sidebar.append(row(search.name, false, () => {
+        sidebar.append(h("button", { class: "rss-feed", onclick: () => {
           state.search = search.search; state.exclude = search.exclude; state.showHidden = search.showHidden;
           select(search.feedId === null ? { kind: "library" } : { kind: "feed", feedId: search.feedId }, search.view);
-        }, null));
+        } }, h("span", { class: "rss-feed-text" }, h("span", { class: "rss-feed-title" }, search.name))));
       }
     }
     if (overview.feeds.length === 0) {
       sidebar.append(h("div", { class: "rss-empty" }, h("p", {}, "No feeds yet."),
-        h("button", { class: "rss-primary", onclick: addFeedDialog }, "Add a feed"),
+        h("button", { class: "rss-primary", onclick: addFeedDialog }, "Subscribe to a feed"),
         h("button", { onclick: settingsDialog }, "Import OPML…")));
       return;
     }
-    sidebar.append(h("h2", {}, "Feeds"));
     const folders = new Map<string, Overview["feeds"]>();
     for (const feed of overview.feeds) folders.set(feed.folder, [...(folders.get(feed.folder) ?? []), feed]);
-    const feedRow = (feed: Overview["feeds"][number], nested: boolean) => row(feed.title, scopeIs({ kind: "feed", feedId: feed.id }),
-      () => select({ kind: "feed", feedId: feed.id }), feed.lastError ? h("span", { class: "rss-warn", title: feed.lastError }, "!") : count(feed.unread),
-      state.editing ? [
-        h("button", { class: "rss-icon", "aria-label": `Move ${feed.title} up`, onclick: async () => { await guard(() => api.invoke("update_feed", { id: feed.id, move: "up" })); await loadOverview(); } }, "↑"),
-        h("button", { class: "rss-icon", "aria-label": `Move ${feed.title} down`, onclick: async () => { await guard(() => api.invoke("update_feed", { id: feed.id, move: "down" })); await loadOverview(); } }, "↓"),
-        h("button", { class: "rss-icon", "aria-label": `Edit ${feed.title}`, onclick: () => editFeedDialog(feed) }, "✎"),
-      ] : [], nested ? "rss-nested" : "");
-    for (const feed of folders.get("") ?? []) sidebar.append(feedRow(feed, false));
+    sidebar.append(h("h2", {}, h("span", {}, folders.size > 1 || !folders.has("") ? "Folders" : "Feeds"),
+      h("button", { class: `rss-icon${state.editing ? " rss-on" : ""}`, title: "Edit subscriptions", "aria-label": "Edit subscriptions", "aria-pressed": String(state.editing), onclick: () => { state.editing = !state.editing; renderSidebar(); } }, icon("pencil"))));
+    const feedRow = (feed: Overview["feeds"][number]) => {
+      const active = scopeIs({ kind: "feed", feedId: feed.id });
+      const status = feed.lastError ? h("span", { class: "rss-feed-sub rss-feed-failed", title: feed.lastError }, "Refresh failed")
+        : h("span", { class: "rss-feed-sub" }, feed.lastFetchedAt ? `Updated ${ago(feed.lastFetchedAt)}` : "Not fetched yet");
+      const main = h("button", { class: "rss-feed", "aria-current": active ? "true" : null, onclick: () => select({ kind: "feed", feedId: feed.id }) },
+        h("span", { class: "rss-feed-text" }, h("span", { class: "rss-feed-title" }, feed.lastError ? "! " : "", feed.title), status), count(feed.unread));
+      return h("div", { class: `rss-feed-row${active ? " rss-active" : ""}` }, main, ...(state.editing ? [
+        h("button", { class: "rss-icon", "aria-label": `Move ${feed.title} up`, onclick: async () => { await guard(() => api.invoke("update_feed", { id: feed.id, move: "up" })); await loadOverview(); } }, icon("up")),
+        h("button", { class: "rss-icon", "aria-label": `Move ${feed.title} down`, onclick: async () => { await guard(() => api.invoke("update_feed", { id: feed.id, move: "down" })); await loadOverview(); } }, icon("down")),
+        h("button", { class: "rss-icon", "aria-label": `Edit ${feed.title}`, onclick: () => editFeedDialog(feed) }, icon("pencil")),
+      ] : []));
+    };
+    for (const feed of folders.get("") ?? []) sidebar.append(feedRow(feed));
     for (const [folder, feeds] of folders) {
       if (!folder) continue;
-      sidebar.append(row(folder, scopeIs({ kind: "folder", folder }), () => select({ kind: "folder", folder }), count(feeds.reduce((sum, feed) => sum + feed.unread, 0)), [], "rss-folder"));
-      for (const feed of feeds) sidebar.append(feedRow(feed, true));
+      const active = scopeIs({ kind: "folder", folder });
+      const open = !collapsed.has(folder);
+      sidebar.append(h("div", { class: `rss-folder${active ? " rss-active" : ""}` },
+        h("button", { class: "rss-icon", "aria-label": `${open ? "Collapse" : "Expand"} ${folder}`, "aria-expanded": String(open), onclick: () => toggleFolder(folder) }, icon(open ? "chevronDown" : "chevronRight")),
+        h("button", { class: "rss-folder-main", "aria-current": active ? "true" : null, onclick: () => select({ kind: "folder", folder }) },
+          h("span", { class: "rss-folder-name" }, folder), count(feeds.reduce((sum, feed) => sum + feed.unread, 0)))));
+      if (open) for (const feed of feeds) sidebar.append(feedRow(feed));
     }
   }
 
-  const searchInput = h("input", { type: "search", class: "rss-search", placeholder: "Search articles", "aria-label": "Search articles" });
+  const searchInput = h("input", { type: "search", class: "rss-search", placeholder: "Search your articles…", "aria-label": "Search articles" });
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   searchInput.addEventListener("input", () => {
     clearTimeout(searchTimer);
@@ -423,8 +446,8 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   const listBody = h("div", { class: "rss-items", role: "listbox", "aria-label": "Articles" });
   listPane.append(listHead, chips, listBody);
   listHead.append(searchInput,
-    h("button", { title: "Filters, mute rules and saved searches", onclick: filtersDialog }, "Filters"),
-    h("button", { title: "Mark everything in this view's feed read", onclick: () => void markAllRead() }, "Mark all read"));
+    h("button", { class: "rss-icon", title: "Filters, mute rules and saved searches", "aria-label": "Filters", onclick: filtersDialog }, icon("filter")),
+    h("button", { class: "rss-icon", title: "Mark everything in this view read", "aria-label": "Mark all read", onclick: () => void markAllRead() }, icon("checkAll")));
 
   function renderList() {
     if (document.activeElement !== searchInput) searchInput.value = state.search;
@@ -433,22 +456,26 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     if (state.search.trim()) chips.append(chip(`Search: ${state.search.trim()}`, () => { state.search = ""; void loadList(); }));
     if (state.exclude.trim()) chips.append(chip(`Excluding: ${state.exclude.trim()}`, () => { state.exclude = ""; void loadList(); }));
     if (state.showHidden) chips.append(chip("Showing hidden", () => { state.showHidden = false; void loadList(); }));
-    if (state.view !== "all") chips.append(chip(state.view === "unread" ? "Unread only" : "Saved only", () => select(state.scope, "all")));
     if (chips.childElementCount > 0) chips.append(h("button", { class: "rss-link", onclick: resetFilters }, "Reset filters"));
     clear(listBody);
     if (state.items.length === 0) {
-      listBody.append(h("p", { class: "rss-muted rss-pad" }, state.overview?.feeds.length ? "Nothing here." : "Add a feed to start reading."));
+      listBody.append(h("p", { class: "rss-muted rss-pad" }, state.overview?.feeds.length ? "Nothing here." : "Subscribe to a feed to start reading."));
     }
+    const pictures = settings()?.loadImages === true;
     for (const item of state.items) {
       const selected = item.id === state.selectedId;
-      const element = h("button", { class: `rss-article${item.read ? " rss-read-item" : ""}${selected ? " rss-active" : ""}`, role: "option", "aria-selected": String(selected), onclick: () => void open(item.id) },
-        h("span", { class: "rss-article-title" }, item.saved ? "★ " : "", item.title),
-        h("span", { class: "rss-article-meta" }, `${item.feedTitle} · ${relativeTime(item.publishedAt)}`),
-        item.excerpt ? h("span", { class: "rss-article-excerpt" }, item.excerpt) : null);
+      const thumb = pictures && item.image ? h("img", { class: "rss-thumb", src: item.image, alt: "", loading: "lazy", decoding: "async", referrerpolicy: "no-referrer" }) : null;
+      thumb?.addEventListener("error", () => thumb.remove());
+      const element = h("button", { class: `rss-card${item.read ? " rss-read-item" : ""}${selected ? " rss-active" : ""}`, role: "option", "aria-selected": String(selected), onclick: () => void open(item.id) },
+        h("span", { class: "rss-card-meta" }, item.read ? null : h("span", { class: "rss-dot", title: "Unread" }), h("span", { class: "rss-card-feed" }, item.feedTitle),
+          item.saved ? h("span", { class: "rss-card-saved", title: "Saved" }, icon("bookmark", true)) : null, h("span", { class: "rss-card-date" }, relativeTime(item.publishedAt))),
+        h("span", { class: "rss-card-main" },
+          h("span", { class: "rss-card-text" }, h("span", { class: "rss-card-title" }, item.title), item.excerpt ? h("span", { class: "rss-card-excerpt" }, item.excerpt) : null),
+          thumb));
       listBody.append(element);
       if (selected) queueMicrotask(() => element.scrollIntoView({ block: "nearest" }));
     }
-    if (state.items.length < state.total) listBody.append(h("button", { class: "rss-more", onclick: () => void loadList(true) }, `Show more (${state.total - state.items.length} left)`));
+    if (state.items.length < state.total) listBody.append(h("button", { class: "rss-more", onclick: () => void loadList(true) }, `Show more (${(state.total - state.items.length).toLocaleString()} left)`));
     if (state.hidden > 0 && !state.showHidden) listBody.append(h("p", { class: "rss-muted rss-pad" }, `${state.hidden} hidden by mute rules. `, h("button", { class: "rss-link", onclick: () => { state.showHidden = true; void loadList(); } }, "Show")));
   }
 
@@ -459,30 +486,34 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
       readPane.append(h("div", { class: "rss-placeholder" }, h("p", {}, "Pick an article."), h("p", { class: "rss-muted" }, "j / k move through the list · s saves · m toggles read · o opens the original · r refreshes")));
       return;
     }
-    const capture = h("button", { onclick: async () => {
-      capture.disabled = true; capture.textContent = "Loading…";
+    const tool = (label: string, glyph: Node, onclick: () => void, extra: Record<string, string | boolean | null> = {}) =>
+      h("button", { class: "rss-icon", title: label, "aria-label": label, onclick, ...extra }, glyph);
+    const capture = tool(article.fullHtml ? "Reload the full article" : "Load the full article", icon("page"), async () => {
+      capture.disabled = true; capture.classList.add("rss-working");
       const full = await guard(async () => unwrap(await api.invoke("capture", { id: article.id })));
       if (full && state.selectedId === article.id) { state.article = full; patchItem(full.id, { hasFull: full.hasFull }); }
       renderRead();
-    } }, article.fullHtml ? "Reload full article" : "Load full article");
+    }, { class: `rss-icon${article.fullHtml ? " rss-on" : ""}` });
     capture.disabled = !article.url;
     const body = h("div", { class: "rss-body" });
     body.append(renderArticleHtml(article.fullHtml ?? article.html, { images: settings()?.loadImages === true }));
     if (!body.textContent?.trim() && !body.querySelector("img")) body.append(h("p", { class: "rss-muted" }, article.excerpt || "This feed did not include any text for the article."));
-    readPane.append(
-      h("header", { class: "rss-read-head" },
-        h("h1", {}, article.url ? h("a", { href: article.url, target: "_blank", rel: "noopener noreferrer" }, article.title) : article.title),
-        h("p", { class: "rss-muted" }, [article.feedTitle, article.author, new Date(article.publishedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })].filter(Boolean).join(" · ")),
-        h("div", { class: "rss-tools" },
-          h("button", { "aria-pressed": String(article.saved), onclick: () => void setSaved(article.id, !article.saved) }, article.saved ? "★ Saved" : "☆ Save"),
-          h("button", { onclick: () => void setRead(article.id, !article.read) }, article.read ? "Mark unread" : "Mark read"),
-          capture,
-          h("span", { class: "rss-gap" }),
-          h("button", { title: "Ask the agent for a summary with supporting passages", onclick: () => void chat("summarize") }, "Summarize"),
-          h("button", { title: "Open a conversation about this article", onclick: () => void chat("discuss") }, "Discuss"),
-          h("button", { title: "Ask the agent to look for other reporting on these claims", onclick: () => void chat("sources") }, "Find sources"))),
-      article.fullHtml ? "" : h("p", { class: "rss-muted rss-from-feed" }, "Showing what the feed provided."),
-      body);
+    const kicker = [article.feedTitle, article.author, new Date(article.publishedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })]
+      .filter((part, index, all) => part && all.indexOf(part) === index).join(" · ");
+    readPane.append(h("div", { class: "rss-column" },
+      h("p", { class: "rss-kicker" }, kicker),
+      h("h1", {}, article.title),
+      h("div", { class: "rss-tools" },
+        article.url ? h("a", { class: "rss-icon", href: article.url, target: "_blank", rel: "noopener noreferrer", title: "Open the original (o)", "aria-label": "Open the original" }, icon("external")) : null,
+        tool(article.saved ? "Remove from saved (s)" : "Save (s)", icon("bookmark", article.saved), () => void setSaved(article.id, !article.saved), { "aria-pressed": String(article.saved), class: `rss-icon${article.saved ? " rss-on" : ""}` }),
+        tool(article.read ? "Mark unread (m)" : "Mark read (m)", icon(article.read ? "circleCheck" : "circle"), () => void setRead(article.id, !article.read)),
+        capture,
+        h("span", { class: "rss-gap" }),
+        h("button", { class: "rss-tab", title: "Ask the agent for a summary with supporting passages", onclick: () => void chat("summarize") }, "Summary"),
+        h("button", { class: "rss-tab", title: "Ask the agent to look for other reporting on these claims", onclick: () => void chat("sources") }, "Sources"),
+        h("button", { class: "rss-primary", title: "Open a conversation about this article", onclick: () => void chat("discuss") }, "Discuss", icon("arrowOut"))),
+      article.fullHtml ? null : h("p", { class: "rss-muted rss-from-feed" }, "Showing what the feed provided."),
+      body));
   }
 
   // ---- keyboard ---------------------------------------------------------------------------
@@ -504,7 +535,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   };
   document.addEventListener("keydown", onKey);
 
-  renderSidebar(); renderList(); renderRead();
+  renderTop(); renderSidebar(); renderList(); renderRead();
   void reload();
 
   return {

@@ -298,3 +298,16 @@ test("plain text keeps inline words together and separates blocks", () => {
   assert.equal(htmlToText("<p>This is <em>The Stepback</em>, a <a href='#'>weekly</a> letter.</p><p>Next</p><ul><li>a</li><li>b</li></ul>"),
     "This is The Stepback, a weekly letter. Next a b");
 });
+
+test("thumbnails: the feed's declared picture wins, else the first picture in the body", async () => {
+  const { parseFeed } = await import("../dist/feed-parse.js");
+  const { firstImage } = await import("../dist/store.js");
+  const feed = parseFeed(`<?xml version="1.0"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>T</title>
+    <item><title>A</title><link>https://example.com/a</link><media:thumbnail url="https://example.com/a.jpg"/></item>
+    <item><title>B</title><link>https://example.com/b</link><enclosure url="https://example.com/b.mp3" type="audio/mpeg"/></item>
+    <item><title>C</title><link>https://example.com/c</link><enclosure url="/c.png" type="image/png"/></item>
+  </channel></rss>`, "https://example.com/feed");
+  assert.deepEqual(feed.items.map((item) => item.image), ["https://example.com/a.jpg", null, "https://example.com/c.png"]);
+  assert.equal(firstImage('<p>x</p><img loading="lazy" src="https://example.com/p.jpg?a=1&amp;b=2" alt="">'), "https://example.com/p.jpg?a=1&b=2");
+  assert.equal(firstImage("<p>no pictures</p>"), null);
+});

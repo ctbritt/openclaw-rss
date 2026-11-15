@@ -5,7 +5,7 @@ import { decodeBody } from "./decode.js";
 import type { Fetcher } from "./net-types.js";
 import { buildOpml, parseOpml } from "./opml.js";
 import { cleanHtml, htmlToText } from "./sanitize.js";
-import { LIMITS, type NewArticle, type Store } from "./store.js";
+import { firstImage, LIMITS, type NewArticle, type Store } from "./store.js";
 import { clip, safeHttpUrl } from "./text.js";
 
 const FEED_BYTES = 4 * 1024 * 1024;
@@ -49,7 +49,7 @@ export class Library {
       const text = htmlToText(html);
       // An oversized body is kept as text only rather than cut mid-tag.
       const kept = html.length <= LIMITS.feedBodyChars * 4 ? html : `<p>${clip(text, LIMITS.feedBodyChars).replace(/&/gu, "&amp;").replace(/</gu, "&lt;")}</p>`;
-      return { guid: item.guid, url: item.url, title: item.title, author: item.author, publishedAt: item.publishedAt, html: kept, text };
+      return { guid: item.guid, url: item.url, title: item.title, author: item.author, publishedAt: item.publishedAt, html: kept, text, image: item.image ?? firstImage(kept) };
     });
   }
 

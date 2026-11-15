@@ -38,7 +38,7 @@ export type FeedFetchState = { id: number; url: string; etag: string | null; las
 
 export type ArticleSummary = {
   id: number; feedId: number | null; feedTitle: string; title: string; author: string; url: string | null;
-  publishedAt: number; excerpt: string; read: boolean; saved: boolean; hasFull: boolean;
+  publishedAt: number; excerpt: string; image: string | null; read: boolean; saved: boolean; hasFull: boolean;
 };
 
 export type ArticleDetail = ArticleSummary & { html: string; fullHtml: string | null; fullStatus: string };
@@ -57,7 +57,7 @@ export type ArticleQuery = {
 
 export type NewArticle = {
   guid: string; url: string | null; title: string; author: string; publishedAt: number | null;
-  html: string; text: string;
+  html: string; text: string; image?: string | null;
 };
 
 type Row = Record<string, unknown>;
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS feeds (
 CREATE TABLE IF NOT EXISTS articles (
   id INTEGER PRIMARY KEY, feed_id INTEGER, feed_title TEXT NOT NULL DEFAULT '', guid TEXT NOT NULL,
   url TEXT, title TEXT NOT NULL, author TEXT NOT NULL DEFAULT '', published_at INTEGER NOT NULL,
-  fetched_at INTEGER NOT NULL, excerpt TEXT NOT NULL DEFAULT '', html TEXT NOT NULL DEFAULT '',
+  fetched_at INTEGER NOT NULL, excerpt TEXT NOT NULL DEFAULT '', html TEXT NOT NULL DEFAULT '', image TEXT,
   search_lc TEXT NOT NULL DEFAULT '', full_html TEXT, full_status TEXT NOT NULL DEFAULT 'none',
   read INTEGER NOT NULL DEFAULT 0, saved INTEGER NOT NULL DEFAULT 0,
   UNIQUE (feed_id, guid)
@@ -88,7 +88,13 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 const HIDDEN = `EXISTS (SELECT 1 FROM rules r WHERE (r.feed_id IS NULL OR r.feed_id = a.feed_id) AND instr(a.search_lc, lower(r.phrase)) > 0)`;
 const SUMMARY_COLUMNS = `a.id, a.feed_id, COALESCE(NULLIF(f.custom_title, ''), NULLIF(f.title, ''), a.feed_title) AS feed_title,
-  a.title, a.author, a.url, a.published_at, a.excerpt, a.read, a.saved, a.full_status`;
+  a.title, a.author, a.url, a.published_at, a.excerpt, a.image, a.read, a.saved, a.full_status`;
+
+/** First picture in already-cleaned article HTML, used as the list thumbnail when the feed names none. */
+export function firstImage(html: string): string | null {
+  const src = /<img\b[^>]*?\ssrc="(https?:\/\/[^"]+)"/iu.exec(html)?.[1];
+  return src ? src.replace(/&amp;/gu, "&").slice(0, 2000) : null;
+}
 
 function summary(row: Row): ArticleSummary {
   return {
@@ -100,6 +106,7 @@ function summary(row: Row): ArticleSummary {
     url: row.url === null ? null : String(row.url),
     publishedAt: Number(row.published_at),
     excerpt: String(row.excerpt ?? ""),
+    image: row.image === null || row.image === undefined ? null : String(row.image),
     read: Number(row.read) === 1,
     saved: Number(row.saved) === 1,
     hasFull: row.full_status === "done",
@@ -115,6 +122,22 @@ export class Store {
     this.db = new DatabaseSync(file);
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = OFF; PRAGMA busy_timeout = 4000;");
     this.db.exec(SCHEMA);
+    this.migrate();
+  }
+
+  /** Bring libraries created by earlier versions up to date. */
+  private migrate(): void {
+    const columns = (this.db.prepare("PRAGMA table_info(articles)").all() as Row[]).map((row) => String(row.name));
+    if (!columns.includes("image")) {
+      this.tx(() => {
+        this.db.exec("ALTER TABLE articles ADD COLUMN image TEXT");
+        const update = this.db.prepare("UPDATE articles SET image = ? WHERE id = ?");
+        for (const row of this.db.prepare("SELECT id, html FROM articles WHERE html LIKE '%<img%'").all() as Row[]) {
+          const image = firstImage(String(row.html));
+          if (image) update.run(image, Number(row.id));
+        }
+      });
+    }
   }
 
   close(): void { this.db.close(); }
@@ -251,15 +274,15 @@ export class Store {
   addArticles(feedId: number, items: NewArticle[], now = Date.now()): number {
     return this.tx(() => {
       const insert = this.db.prepare(`INSERT OR IGNORE INTO articles
-        (feed_id, guid, url, title, author, published_at, fetched_at, excerpt, html, search_lc)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        (feed_id, guid, url, title, author, published_at, fetched_at, excerpt, html, search_lc, image)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
       let added = 0;
       for (const item of items.slice(0, LIMITS.entriesPerRefresh)) {
         // A missing or future-dated timestamp would pin the story to the top forever.
         const published = item.publishedAt !== null && item.publishedAt <= now + 86_400_000 ? item.publishedAt : now;
         const body = clip(item.text, LIMITS.feedBodyChars);
         const result = insert.run(feedId, item.guid, item.url, clip(item.title, 500), clip(item.author, 200), published, now,
-          clip(body, LIMITS.excerptChars), item.html, `${item.title}\n${body}`.toLowerCase());
+          clip(body, LIMITS.excerptChars), item.html, `${item.title}\n${body}`.toLowerCase(), item.image ?? null);
         added += Number(result.changes);
       }
       this.db.prepare(`DELETE FROM articles WHERE feed_id = ? AND saved = 0 AND id NOT IN (
