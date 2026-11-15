@@ -1,7 +1,7 @@
 {
   "id": "rss",
   "name": "RSS",
-  "description": "Analyze drafts with RSS tools and native UI.",
+  "description": "A reading room for RSS and Atom feeds in the Control UI, with the same library available to the agent.",
   "version": "0.1.0",
   "configSchema": {
     "type": "object",
@@ -13,7 +13,9 @@
   },
   "contracts": {
     "tools": [
-      "rss_analyze"
+      "rss_feeds",
+      "rss_articles",
+      "rss_article"
     ]
   }
 }
