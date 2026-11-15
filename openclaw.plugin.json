@@ -17,6 +17,9 @@
       "dist/control-ui/83d83fe70fe15d46e2296a0d85ca79d3b20fcc06ebd473560e5026e7893d184d/index.css"
     ]
   },
+  "reload": {
+    "turnHandover": true
+  },
   "contracts": {
     "tools": [
       "rss_article",
