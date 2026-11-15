@@ -1,0 +1,19 @@
+{
+  "id": "rss",
+  "name": "RSS",
+  "description": "Analyze drafts with RSS tools and native UI.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "rss_analyze"
+    ]
+  }
+}
