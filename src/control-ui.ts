@@ -49,6 +49,8 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     editing: false,
     busy: false,
     loadSeq: 0,
+    /** True while the reader has asked to see the feed's own text for the open article. */
+    feedText: false,
   };
 
   // ---- skeleton ---------------------------------------------------------------------------
@@ -136,6 +138,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     const article = await guard(async () => unwrap(await api.invoke("article", { id })));
     if (!article || signal.aborted || state.selectedId !== id) return;
     state.article = article;
+    state.feedText = false;
     renderRead();
     readPane.scrollTop = 0;
     if (!article.read && settings()?.markReadOnOpen) await setRead(id, true);
@@ -515,15 +518,18 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     }
     const tool = (label: string, glyph: Node, onclick: () => void, extra: Record<string, string | boolean | null> = {}) =>
       h("button", { class: "rss-icon", title: label, "aria-label": label, onclick, ...extra }, glyph);
-    const capture = tool(article.fullHtml ? "Reload the full article" : "Load the full article", icon("page"), async () => {
+    const showingFull = article.fullHtml !== null && !state.feedText;
+    // One button: fetch the full article the first time, then flip between it and the feed's text.
+    const capture = tool(article.fullHtml === null ? "Load the full article" : showingFull ? "Show the feed's summary" : "Show the full article", icon("page"), async () => {
+      if (article.fullHtml !== null) { state.feedText = !state.feedText; renderRead(); return; }
       capture.disabled = true; capture.classList.add("rss-working");
       const full = await guard(async () => unwrap(await api.invoke("capture", { id: article.id })));
-      if (full && state.selectedId === article.id) { state.article = full; patchItem(full.id, { hasFull: full.hasFull }); }
+      if (full && state.selectedId === article.id) { state.article = full; state.feedText = false; patchItem(full.id, { hasFull: full.hasFull }); }
       renderRead();
-    }, { class: `rss-icon${article.fullHtml ? " rss-on" : ""}` });
+    }, { class: `rss-icon${showingFull ? " rss-on" : ""}`, "aria-pressed": String(showingFull) });
     capture.disabled = !article.url;
     const body = h("div", { class: "rss-body" });
-    body.append(renderArticleHtml(article.fullHtml ?? article.html, { images: settings()?.loadImages === true }));
+    body.append(renderArticleHtml(showingFull ? article.fullHtml ?? article.html : article.html, { images: settings()?.loadImages === true }));
     if (!body.textContent?.trim() && !body.querySelector("img")) body.append(h("p", { class: "rss-muted" }, article.excerpt || "This feed did not include any text for the article."));
     const kicker = [article.feedTitle, article.author, new Date(article.publishedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })]
       .filter((part, index, all) => part && all.indexOf(part) === index).join(" · ");
@@ -539,7 +545,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
         h("button", { class: "rss-tab", title: "Ask the agent for a summary with supporting passages", onclick: () => void chat("summarize") }, "Summary"),
         h("button", { class: "rss-tab", title: "Ask the agent to look for other reporting on these claims", onclick: () => void chat("sources") }, "Sources"),
         h("button", { class: "rss-primary", title: "Open a conversation about this article", onclick: () => void chat("discuss") }, "Discuss", icon("arrowOut"))),
-      article.fullHtml ? null : h("p", { class: "rss-muted rss-from-feed" }, "Showing what the feed provided."),
+      showingFull ? null : h("p", { class: "rss-muted rss-from-feed" }, article.fullHtml === null ? "Showing what the feed provided." : "Showing the feed's summary. The full article is loaded."),
       article.grade && article.grade.level !== "normal" ? h("div", { class: `rss-grade-note rss-grade-${article.grade.level}` }, h("span", { class: "rss-grade-label" }, article.grade.level), article.grade.reason) : null,
       body));
   }
