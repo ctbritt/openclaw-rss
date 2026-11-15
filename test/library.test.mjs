@@ -353,3 +353,16 @@ test("grading: verdicts are stored once, junk answers are rejected, the article 
   assert.equal(broken.gradingStatus().lastError?.includes("not with grades"), true);
   store.close();
 });
+
+test("ranking filters: pick levels, and hide spam without hiding ungraded stories", () => {
+  const store = new Store(":memory:");
+  const feedId = store.addFeed({ url: "https://example.com/feed", title: "Feed", folder: "" });
+  store.addArticles(feedId, [1, 2, 3, 4].map((n) => ({ guid: String(n), url: null, title: `S${n}`, author: "", publishedAt: Date.now() - n * 1000, html: "", text: "" })));
+  const ids = store.listArticles({}).items.map((item) => item.id);
+  store.setGrades([{ id: ids[0], level: "important", reason: "" }, { id: ids[1], level: "interesting", reason: "" }, { id: ids[2], level: "spam", reason: "" }]);
+  assert.equal(store.listArticles({ grades: ["important"] }).total, 1);
+  assert.equal(store.listArticles({ grades: ["important", "interesting"] }).total, 2);
+  assert.equal(store.listArticles({ hideSpam: true }).total, 3);
+  assert.equal(store.listArticles({}).total, 4);
+  store.close();
+});

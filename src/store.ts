@@ -67,6 +67,10 @@ export type View = "all" | "unread" | "saved";
 export type ArticleQuery = {
   feedId?: number; folder?: string; view?: View; search?: string; exclude?: string;
   showHidden?: boolean; offset?: number; limit?: number;
+  /** Only stories graded at one of these levels. */
+  grades?: GradeLevel[];
+  /** Leave out stories graded as spam (ungraded stories stay). */
+  hideSpam?: boolean;
 };
 
 export type NewArticle = {
@@ -345,6 +349,9 @@ export class Store {
     else if (query.folder !== undefined) { clauses.push("a.feed_id IN (SELECT id FROM feeds WHERE folder = ?)"); params.push(query.folder); }
     if (query.view === "unread") clauses.push("a.read = 0");
     if (query.view === "saved") clauses.push("a.saved = 1");
+    const grades = (query.grades ?? []).filter((level) => (GRADE_LEVELS as readonly string[]).includes(level));
+    if (grades.length) { clauses.push(`a.grade IN (${grades.map(() => "?").join(", ")})`); params.push(...grades); }
+    if (query.hideSpam) clauses.push("(a.grade IS NULL OR a.grade <> 'spam')");
     const search = query.search?.trim().toLowerCase();
     // Headline and text, plus the byline and the publication's name.
     if (search) {

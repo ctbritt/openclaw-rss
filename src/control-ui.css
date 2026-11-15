@@ -108,6 +108,12 @@
 .rss-grade-label { display: block; font-size: 0.72em; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rss-tag); margin-bottom: 2px; }
 .rss-form textarea { font: inherit; color: inherit; background: var(--rss-card); border: 1px solid var(--input, var(--rss-line)); border-radius: var(--rss-r); padding: 6px 10px; resize: vertical; min-height: 5em; }
 
+.rss-quick { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--rss-line); flex: none; }
+.rss-root .rss-toggle { border-radius: 999px; font-size: 0.8em; font-weight: 600; padding: 2px 11px; background: transparent; color: var(--rss-dim); }
+.rss-root .rss-toggle:hover { color: var(--text); }
+.rss-root .rss-toggle-on { color: var(--rss-tag); border-color: color-mix(in srgb, var(--rss-tag) 55%, transparent); background: color-mix(in srgb, var(--rss-tag) 12%, transparent); }
+.rss-root .rss-toggle-on.rss-grade-spam { color: var(--text); }
+
 /* Reading pane */
 .rss-read:focus { outline: none; }
 .rss-column { max-width: 46rem; margin: 0 auto; padding: 36px 40px 64px; }

@@ -61,6 +61,8 @@ const ArticleQuery = Type.Object({
   search: Type.Optional(Phrase),
   exclude: Type.Optional(Phrase),
   showHidden: Type.Optional(Type.Boolean()),
+  grades: Type.Optional(Type.Array(Type.Union([Type.Literal("important"), Type.Literal("interesting"), Type.Literal("normal"), Type.Literal("spam")]), { maxItems: 4 })),
+  hideSpam: Type.Optional(Type.Boolean()),
   offset: Type.Optional(Type.Integer({ minimum: 0 })),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
 }, closed);

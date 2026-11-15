@@ -51,6 +51,10 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     loadSeq: 0,
     /** True while the reader has asked to see the feed's own text for the open article. */
     feedText: false,
+    /** Built-in ranking filters. Important and Interesting combine: either one matches. */
+    important: false,
+    interesting: false,
+    hideSpam: true,
   };
 
   // ---- skeleton ---------------------------------------------------------------------------
@@ -85,6 +89,8 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     ...(state.search.trim() ? { search: state.search.trim() } : {}),
     ...(state.exclude.trim() ? { exclude: state.exclude.trim() } : {}),
     showHidden: state.showHidden,
+    ...(state.important || state.interesting ? { grades: [...(state.important ? ["important" as const] : []), ...(state.interesting ? ["interesting" as const] : [])] } : {}),
+    ...(state.hideSpam ? { hideSpam: true } : {}),
     offset,
     limit: PAGE,
   });
@@ -195,7 +201,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   };
 
   const resetFilters = () => {
-    state.search = ""; state.exclude = ""; state.showHidden = false;
+    state.search = ""; state.exclude = ""; state.showHidden = false; state.important = false; state.interesting = false;
     select({ kind: "library" }, "all");
   };
 
@@ -471,8 +477,30 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
   });
   const listHead = h("header", { class: "rss-bar" });
   const chips = h("div", { class: "rss-chips" });
+  const quickKey = "openclaw-rss:quick-filters";
+  try {
+    const saved = JSON.parse(localStorage.getItem(quickKey) ?? "{}") as Record<string, unknown>;
+    if (typeof saved.hideSpam === "boolean") state.hideSpam = saved.hideSpam;
+  } catch { /* defaults */ }
+  const quick = h("div", { class: "rss-quick", role: "group", "aria-label": "Ranking filters" });
+  const renderQuick = () => {
+    clear(quick);
+    const toggle = (label: string, key: "important" | "interesting" | "hideSpam", cls: string, title: string) =>
+      h("button", { class: `rss-toggle ${cls}${state[key] ? " rss-toggle-on" : ""}`, "aria-pressed": String(state[key]), title, onclick: () => {
+        state[key] = !state[key];
+        try { localStorage.setItem(quickKey, JSON.stringify({ hideSpam: state.hideSpam })); } catch { /* not remembered */ }
+        state.selectedId = null; state.article = null;
+        renderQuick(); renderRead(); void loadList();
+      } }, label);
+    quick.append(
+      toggle("Important", "important", "rss-grade-important", "Show only stories graded important"),
+      toggle("Interesting", "interesting", "rss-grade-interesting", "Show only stories graded interesting"),
+      h("span", { class: "rss-gap" }),
+      toggle("Hide spam", "hideSpam", "rss-grade-spam", "Leave out stories graded as spam"));
+  };
+  renderQuick();
   const listBody = h("div", { class: "rss-items", role: "listbox", "aria-label": "Articles" });
-  listPane.append(listHead, chips, listBody);
+  listPane.append(listHead, quick, chips, listBody);
   listHead.append(searchInput,
     h("button", { class: "rss-icon", title: "Filters, mute rules and saved searches", "aria-label": "Filters", onclick: filtersDialog }, icon("filter")),
     h("button", { class: "rss-icon", title: "Mark everything in this view read", "aria-label": "Mark all read", onclick: () => void markAllRead() }, icon("checkAll")));
@@ -484,6 +512,7 @@ function mountReader(container: HTMLElement, host: ControlUiHost, signal: AbortS
     if (state.search.trim()) chips.append(chip(`Search: ${state.search.trim()}`, () => { state.search = ""; void loadList(); }));
     if (state.exclude.trim()) chips.append(chip(`Excluding: ${state.exclude.trim()}`, () => { state.exclude = ""; void loadList(); }));
     if (state.showHidden) chips.append(chip("Showing hidden", () => { state.showHidden = false; void loadList(); }));
+    renderQuick();
     if (chips.childElementCount > 0) chips.append(h("button", { class: "rss-link", onclick: resetFilters }, "Reset filters"));
     clear(listBody);
     if (state.items.length === 0) {
